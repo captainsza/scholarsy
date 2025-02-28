@@ -1,0 +1,320 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// User model (base model for all roles with authentication)
+model User {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  email         String    @unique
+  password      String // Hashed password
+  role          Role      @default(STUDENT) // Enum for role-based access
+  isApproved    Boolean   @default(false) // Admin approval required for Faculty/Student
+  emailVerified Boolean   @default(false) // Email verification status
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  profile       Profile?  // One-to-one relation with profile
+  faculty       Faculty?  @relation("FacultyUser") // Faculty-specific data
+  student       Student?  @relation("StudentUser") // Student-specific data
+  admin         Admin?    @relation("AdminUser")   // Admin-specific data
+  approvals     Approval[] // Add this line for Approval relation
+}
+
+// Role Enum
+enum Role {
+  ADMIN
+  FACULTY
+  STUDENT
+}
+
+// Profile model (common details for all users)
+model Profile {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  firstName String
+  lastName  String
+  phone     String?
+  userId    String    @unique @db.ObjectId
+  user      User      @relation(fields: [userId], references: [id])
+}
+
+// Admin model (Admin-specific data)
+model Admin {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @unique @db.ObjectId
+  user      User      @relation("AdminUser", fields: [userId], references: [id])
+
+  // Admin-specific relationships
+  approvals Approval[] // Approvals managed by admin
+}
+
+// Faculty model (Faculty-specific data)
+model Faculty {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String        @unique @db.ObjectId
+  user          User          @relation("FacultyUser", fields: [userId], references: [id])
+  department    String
+  workload      Workload[]
+  leaves        Leave[]
+  schedules     Schedule[]
+  gradeRecords  GradeRecord[] // Faculty manages grade records
+  courses       Course[]      // Add this relation for courses taught by faculty
+}
+
+// Student model (Student-specific data with enhanced fields)
+model Student {
+  id                String        @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String        @unique @db.ObjectId
+  user              User          @relation("StudentUser", fields: [userId], references: [id])
+  enrollmentId      String        @unique
+  department        String
+  
+  // Personal details
+  gender            String?       // Added field
+  dob               DateTime?     // Added field
+  bloodGroup        String?       // Added field
+  
+  // Family information
+  fatherName        String?       // Added field
+  motherName        String?       // Added field
+  
+  // Academic information
+  admissionSession  String?       // Added field
+  admissionSemester String?       // Added field
+  academicStatus    String?       // Added field
+  instituteCode     String?       // Added field
+  instituteName     String?       // Added field
+  courseName        String?       // Added field
+  branchName        String?       // Added field
+  currentSemester   String?       // Added field
+  
+  // Contact details
+  address           String?       // Added field
+  city              String?       // Added field
+  state             String?       // Added field
+  country           String?       @default("India") // Added field
+  pincode           String?       // Added field
+  
+  // Relationships
+  registrations     Registration[]
+  attendance        Attendance[]
+  gradeRecords      GradeRecord[] 
+  submissions       Submission[]
+}
+
+// Approval model (For admin to approve faculty/student registrations)
+model Approval {
+  id        String    @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String    @db.ObjectId
+  adminId   String    @db.ObjectId
+  status    ApprovalStatus @default(PENDING)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  user      User      @relation(fields: [userId], references: [id])
+  admin     Admin     @relation(fields: [adminId], references: [id])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Workload model (Faculty workload management)
+model Workload {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  facultyId   String    @db.ObjectId
+  courseName  String
+  hours       Int
+  semester    String
+  createdAt   DateTime  @default(now())
+
+  faculty     Faculty   @relation(fields: [facultyId], references: [id])
+}
+
+// Leave model (Leave management for faculty)
+model Leave {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  facultyId   String    @db.ObjectId
+  startDate   DateTime
+  endDate     DateTime
+  reason      String
+  status      LeaveStatus @default(PENDING)
+  createdAt   DateTime  @default(now())
+
+  faculty     Faculty   @relation(fields: [facultyId], references: [id])
+}
+
+enum LeaveStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Schedule model (Classroom and Lab Scheduling)
+model Schedule {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  facultyId   String    @db.ObjectId
+  roomId      String    @db.ObjectId
+  startTime   DateTime
+  endTime     DateTime
+  courseName  String
+  dayOfWeek   String
+
+  faculty     Faculty   @relation(fields: [facultyId], references: [id])
+  room        Room      @relation(fields: [roomId], references: [id])
+}
+
+// Room model (Classroom/Lab details)
+model Room {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  name        String
+  type        RoomType  @default(CLASSROOM)
+  capacity    Int
+  schedules   Schedule[]
+  equipments  Equipment[]
+}
+
+enum RoomType {
+  CLASSROOM
+  LAB
+}
+
+// Equipment model (Equipment Management)
+model Equipment {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  roomId      String    @db.ObjectId
+  name        String
+  status      EquipmentStatus @default(AVAILABLE)
+  lastChecked DateTime?
+
+  room        Room      @relation(fields: [roomId], references: [id])
+}
+
+enum EquipmentStatus {
+  AVAILABLE
+  IN_USE
+  UNDER_MAINTENANCE
+}
+
+// Registration model (Student Enrollment and Registration)
+model Registration {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String    @db.ObjectId
+  courseId    String    @db.ObjectId
+  semester    String
+  createdAt   DateTime  @default(now())
+
+  student     Student   @relation(fields: [studentId], references: [id])
+  course      Course    @relation(fields: [courseId], references: [id])
+}
+
+// Course model
+model Course {
+  id            String        @id @default(auto()) @map("_id") @db.ObjectId
+  code          String        @unique
+  name          String
+  credits       Int
+  department    String
+  registrations Registration[]
+  gradeRecords  GradeRecord[]
+  attendance    Attendance[]
+  assignments   Assignment[]
+  facultyId     String?       @db.ObjectId
+  faculty       Faculty?      @relation(fields: [facultyId], references: [id])
+}
+
+// Attendance model (Attendance Tracking)
+model Attendance {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId   String    @db.ObjectId
+  courseId    String    @db.ObjectId
+  date        DateTime
+  status      AttendanceStatus @default(PRESENT)
+
+  student     Student   @relation(fields: [studentId], references: [id])
+  course      Course    @relation(fields: [courseId], references: [id])
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+}
+
+// GradeRecord model (Sessional marks and attendance-based calculation)
+model GradeRecord {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String    @db.ObjectId
+  facultyId     String    @db.ObjectId
+  courseId      String    @db.ObjectId
+  sessionalMark Float     // Sessional marks
+  attendanceMark Float    // Calculated based on attendance
+  totalMark     Float     // Final calculated internal mark (sessional + attendance)
+  semester      String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  student       Student   @relation(fields: [studentId], references: [id])
+  faculty       Faculty   @relation(fields: [facultyId], references: [id])
+  course        Course    @relation(fields: [courseId], references: [id])
+}
+
+// VerificationToken model for email verification
+model VerificationToken {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  identifier  String    // Email address of the user
+  token       String    @unique // Unique token for verification
+  expires     DateTime  // Expiration timestamp
+  
+  @@unique([identifier, token])
+}
+
+// PasswordResetToken model for password reset functionality
+model PasswordResetToken {
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  identifier  String    // Email address of the user
+  token       String    @unique // Unique token for password reset
+  expires     DateTime  // Expiration timestamp
+  
+  @@unique([identifier, token])
+}
+
+// Assignment model
+model Assignment {
+  id          String      @id @default(auto()) @map("_id") @db.ObjectId
+  title       String
+  description String?
+  courseId    String      @db.ObjectId
+  dueDate     DateTime
+  createdAt   DateTime    @default(now())
+  
+  course      Course      @relation(fields: [courseId], references: [id])
+  submissions Submission[]
+}
+
+// Submission model
+model Submission {
+  id           String      @id @default(auto()) @map("_id") @db.ObjectId
+  assignmentId String      @db.ObjectId
+  studentId    String      @db.ObjectId
+  submittedAt  DateTime    @default(now())
+  fileUrl      String?
+  grade        Float?
+  feedback     String?
+  
+  assignment   Assignment  @relation(fields: [assignmentId], references: [id])
+  student      Student     @relation(fields: [studentId], references: [id])
+}
