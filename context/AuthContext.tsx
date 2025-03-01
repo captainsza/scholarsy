@@ -10,6 +10,7 @@ type AuthContextType = {
   logout: () => Promise<void>;
   register: (userData: any) => Promise<void>;
   checkAuthStatus: () => Promise<void>;
+  updateProfile: (userData: any) => Promise<void>; // Add this line
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -123,8 +124,57 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   };
 
+  // Add the updateProfile function
+  const updateProfile = async (userData: any) => {
+    try {
+      setLoading(true);
+      const res = await fetch('/api/user/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData),
+      });
+      
+      const data = await res.json();
+      
+      if (!res.ok) {
+        throw new Error(data.message || 'Failed to update profile');
+      }
+      
+      // Update the local user state
+      setUser(prevUser => {
+        if (!prevUser) return null;
+        
+        return {
+          ...prevUser,
+          ...data.user,
+          profile: {
+            ...prevUser.profile,
+            ...data.user.profile,
+          },
+          faculty: data.user.faculty || prevUser.faculty,
+          student: data.user.student || prevUser.student,
+        };
+      });
+      
+      return data;
+    } catch (error: any) {
+      console.error('Profile update error:', error);
+      throw new Error(error.message || 'Failed to update profile');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, register, checkAuthStatus }}>
+    <AuthContext.Provider value={{ 
+      user, 
+      loading, 
+      login, 
+      logout, 
+      register, 
+      checkAuthStatus,
+      updateProfile // Add this to the context value
+    }}>
       {children}
     </AuthContext.Provider>
   );

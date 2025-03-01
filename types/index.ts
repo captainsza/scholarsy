@@ -22,8 +22,49 @@ export type AuthUser = {
     firstName: string;
     lastName: string;
     phone?: string | null;
+    profileImage?: string | null; // Added profileImage field
   } | null;
   faculty?: Faculty | null;
   student?: Student | null;
   admin?: Admin | null;
 };
+
+// For registration
+export interface RegistrationData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  role: "STUDENT" | "FACULTY" | "ADMIN";
+  firstName: string;
+  lastName: string;
+  gender: string;
+  phone: string;
+  department: string;
+  dob: string;
+  bloodGroup: string;
+  enrollmentId: string;
+  fatherName: string;
+  motherName: string;
+  admissionSession: string;
+  admissionSemester: string;
+  academicStatus: "REGULAR" | "BACKLOG" | "DETAINED" | "READMISSION";
+  instituteCode: string;
+  instituteName: string;
+  courseName: string;
+  branchName: string;
+  currentSemester: string;
+  address: string;
+  city: string;
+  state: string;
+  country: string;
+  pincode: string;
+  profileImageBase64?: string; // Add this line
+}
+
+
+
+export interface FormState {
+  loading: boolean;
+  error: string;
+  currentStep: number;
+}

@@ -3,6 +3,8 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { sendVerificationEmail } from '@/utils/email';
+import { v2 as cloudinary } from 'cloudinary';
+import { uploadToCloudinary } from '@/utils/cloudinary';
 
 const prisma = new PrismaClient();
 
@@ -15,6 +17,7 @@ export async function POST(req: NextRequest) {
       
       // Profile info
       firstName, lastName, phone, department,
+      profileImageBase64, // Add this line
       
       // Student-specific information
       enrollmentId,
@@ -64,6 +67,23 @@ export async function POST(req: NextRequest) {
       }
     }
     
+    // Upload profile image if provided
+    let profileImageUrl: string | undefined = undefined;
+    if (profileImageBase64) {
+      try {
+        // Don't call uploadToCloudinary - instead, upload directly here:
+        const result = await cloudinary.uploader.upload(profileImageBase64, {
+          transformation: [
+            { width: 400, height: 400, crop: 'limit' }
+          ]
+        });
+        profileImageUrl = result.secure_url;
+      } catch (error) {
+        console.error('Failed to upload profile image:', error);
+        // Continue with registration even if image upload fails
+      }
+    }
+    
     // Hash the password
     const hashedPassword = await bcrypt.hash(password, 10);
     
@@ -73,7 +93,24 @@ export async function POST(req: NextRequest) {
     tokenExpiry.setHours(tokenExpiry.getHours() + 24); // Token valid for 24 hours
     
     // Begin transaction to create user and related data
-    const user = await prisma.$transaction(async (prisma) => {
+    const user = await prisma.$transaction(async (prisma: {
+        user: { create: (arg0: { data: { email: any; password: string; role: any; emailVerified: boolean; isApproved: boolean; }; }) => any; }; profile: {
+          create: (arg0: {
+            data: {
+              firstName: any; lastName: any; phone: any; profileImage: string | undefined; // Add this line
+              userId: any;
+            };
+          }) => any;
+        }; student: {
+          create: (arg0: {
+            data: {
+              userId: any; department: any; enrollmentId: any;
+              // Add enhanced student fields
+              gender: any; dob: Date | undefined; bloodGroup: any; fatherName: any; motherName: any; admissionSession: any; admissionSemester: any; academicStatus: any; instituteCode: any; instituteName: any; courseName: any; branchName: any; currentSemester: any; address: any; city: any; state: any; country: any; pincode: any;
+            };
+          }) => any;
+        }; faculty: { create: (arg0: { data: { userId: any; department: any; }; }) => any; }; admin: { create: (arg0: { data: { userId: any; }; }) => any; }; verificationToken: { create: (arg0: { data: { identifier: any; token: string; expires: Date; }; }) => any; };
+      }) => {
       // Create the user
       const user = await prisma.user.create({
         data: {
@@ -85,12 +122,13 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Create profile
+      // Create profile with image URL if available
       await prisma.profile.create({
         data: {
           firstName,
           lastName,
           phone,
+          profileImage: profileImageUrl, // Add this line
           userId: user.id,
         },
       });

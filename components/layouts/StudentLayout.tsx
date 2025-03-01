@@ -29,6 +29,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
   // Navigation links for student
   const navigation = [
     { name: "Dashboard", href: "/student/dashboard", icon: "home" },
+    { name: "Profile", href: "/student/profile", icon: "user" }, // Added profile link
     { name: "Courses", href: "/student/courses", icon: "book-open" },
     { name: "Attendance", href: "/student/attendance", icon: "clipboard-check" },
     { name: "Assignments", href: "/student/assignments", icon: "document-text" },
@@ -80,6 +81,12 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
         return (
           <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+          </svg>
+        );
+      case "user":
+        return (
+          <svg className="h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         );
       default:
@@ -138,7 +145,7 @@ export default function StudentLayout({ children }: StudentLayoutProps) {
                   className={`${isMobileMenuOpen ? 'block' : 'hidden'} h-6 w-6`}
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
-                  viewBox="0 0 24 24"
+                  viewBox="0 24 24"
                   stroke="currentColor"
                   aria-hidden="true"
                 >
