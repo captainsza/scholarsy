@@ -37,12 +37,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 interface CourseDetailsPageProps {
   params: {
     courseId: string;
-  },
-  searchParams: { [key: string]: string | string[] | undefined }
+  }
 }
 
 export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
-  const { courseId } = params;
+  const [courseId, setCourseId] = useState<string>("");
   const router = useRouter();
   const [loading, setLoading] = useState<boolean>(true);
   const [course, setCourse] = useState<any>(null);
@@ -51,8 +50,17 @@ export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
   const [activeTab, setActiveTab] = useState<string>("overview");
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState<boolean>(false);
 
+  // Set courseId from params after component mounts to avoid sync/async mismatch
+  useEffect(() => {
+    if (params.courseId) {
+      setCourseId(params.courseId);
+    }
+  }, [params.courseId]);
+
   useEffect(() => {
     const fetchCourseDetails = async () => {
+      if (!courseId) return;
+      
       try {
         setLoading(true);
         const response = await fetch(`/api/admin/courses/${courseId}`);
@@ -71,7 +79,9 @@ export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
       }
     };
 
-    fetchCourseDetails();
+    if (courseId) {
+      fetchCourseDetails();
+    }
   }, [courseId]);
 
   const toggleSectionExpand = (sectionId: string) => {
@@ -86,6 +96,8 @@ export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
 
   const handleDeleteCourse = async () => {
     try {
+      if (!courseId) return;
+      
       setLoading(true);
       const response = await fetch(`/api/admin/courses/${courseId}`, {
         method: "DELETE"
