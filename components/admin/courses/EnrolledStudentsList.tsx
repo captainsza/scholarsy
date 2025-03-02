@@ -10,7 +10,7 @@ import {
 import { Badge, BadgeVariant } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { toast } from "@/components/ui/Toast";
+import { toast } from "@/components/ui/toastall";
 
 // Define proper interface for enrollment data
 interface Student {
