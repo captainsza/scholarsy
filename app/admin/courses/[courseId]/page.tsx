@@ -4,16 +4,17 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import AdminLayout from "@/components/layouts/AdminLayout";
 
 interface CourseDetailsPageProps {
-  params: {
+  params: Promise<{
     courseId: string;
-  }
+  }>
 }
 
-export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
+export default async function CourseDetailsPage({ params }: CourseDetailsPageProps) {
+  const { courseId } = await params;
   return (
     <AdminLayout>
       <Suspense fallback={<LoadingSpinner message="Loading course details..." />}>
-        <CourseDetailsContent courseId={params.courseId} />
+        <CourseDetailsContent courseId={courseId} />
       </Suspense>
     </AdminLayout>
   );
