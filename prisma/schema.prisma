@@ -71,6 +71,7 @@ model Faculty {
   schedules     Schedule[]
   gradeRecords  GradeRecord[] // Faculty manages grade records
   courses       Course[]      // Add this relation for courses taught by faculty
+  subjects      Subject[]
 }
 
 // Student model (Student-specific data with enhanced fields)
@@ -112,6 +113,9 @@ model Student {
   attendance        Attendance[]
   gradeRecords      GradeRecord[] 
   submissions       Submission[]
+  sectionEnrollments SectionEnrollment[]
+  subjectAttendances SubjectAttendance[]
+  assessmentMarks    AssessmentMark[]
 }
 
 // Approval model (For admin to approve faculty/student registrations)
@@ -186,6 +190,7 @@ model Room {
   capacity    Int
   schedules   Schedule[]
   equipments  Equipment[]
+  classSchedules ClassSchedule[]
 }
 
 enum RoomType {
@@ -229,12 +234,14 @@ model Course {
   name          String
   credits       Int
   department    String
+  description   String?       // Add this line
   registrations Registration[]
   gradeRecords  GradeRecord[]
   attendance    Attendance[]
   assignments   Assignment[]
   facultyId     String?       @db.ObjectId
   faculty       Faculty?      @relation(fields: [facultyId], references: [id])
+  sections      CourseSection[]
 }
 
 // Attendance model (Attendance Tracking)
@@ -318,4 +325,121 @@ model Submission {
   
   assignment   Assignment  @relation(fields: [assignmentId], references: [id])
   student      Student     @relation(fields: [studentId], references: [id])
+}
+
+// CourseSection model for handling different batches/classes
+model CourseSection {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String    // e.g., "Section A", "Morning Batch"
+  courseId      String    @db.ObjectId
+  academicTerm  String    // e.g., "Fall 2023"
+  capacity      Int
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  course        Course    @relation(fields: [courseId], references: [id])
+  subjects      Subject[]
+  enrollments   SectionEnrollment[]
+  schedules     ClassSchedule[]
+}
+
+// Subject model for topics/modules within a course section
+model Subject {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  name          String
+  code          String
+  description   String?
+  creditHours   Int       @default(3)
+  sectionId     String    @db.ObjectId
+  facultyId     String?   @db.ObjectId
+  
+  section       CourseSection @relation(fields: [sectionId], references: [id])
+  faculty       Faculty?   @relation(fields: [facultyId], references: [id])
+  attendances   SubjectAttendance[]
+  assessments   Assessment[]
+}
+
+// SectionEnrollment for tracking students in specific sections
+model SectionEnrollment {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String    @db.ObjectId
+  sectionId     String    @db.ObjectId
+  enrolledAt    DateTime  @default(now())
+  status        EnrollmentStatus @default(ACTIVE)
+  
+  student       Student   @relation(fields: [studentId], references: [id])
+  section       CourseSection @relation(fields: [sectionId], references: [id])
+}
+
+enum EnrollmentStatus {
+  ACTIVE
+  DROPPED
+  COMPLETED
+  ON_HOLD
+}
+
+// SubjectAttendance for detailed attendance tracking
+model SubjectAttendance {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  studentId     String    @db.ObjectId
+  subjectId     String    @db.ObjectId
+  date          DateTime
+  status        AttendanceStatus
+  remarks       String?
+  
+  student       Student   @relation(fields: [studentId], references: [id])
+  subject       Subject   @relation(fields: [subjectId], references: [id])
+}
+
+// Assessment model for tests, assignments, etc.
+model Assessment {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  subjectId     String    @db.ObjectId
+  type          AssessmentType
+  maxMarks      Float
+  weightage     Float    // Percentage in final grade
+  dueDate       DateTime?
+  instructions  String?
+  
+  subject       Subject  @relation(fields: [subjectId], references: [id])
+  marks         AssessmentMark[]
+}
+
+enum AssessmentType {
+  QUIZ
+  ASSIGNMENT
+  MIDTERM
+  FINAL
+  PROJECT
+  PRESENTATION
+  LAB
+  OTHER
+}
+
+// AssessmentMark for individual student grades
+model AssessmentMark {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  assessmentId  String    @db.ObjectId
+  studentId     String    @db.ObjectId
+  marksObtained Float
+  feedback      String?
+  submittedAt   DateTime?
+  evaluatedAt   DateTime?
+  
+  assessment    Assessment @relation(fields: [assessmentId], references: [id])
+  student       Student    @relation(fields: [studentId], references: [id])
+}
+
+// ClassSchedule for section timetables
+model ClassSchedule {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  sectionId     String    @db.ObjectId
+  dayOfWeek     String
+  startTime     String
+  endTime       String
+  roomId        String?   @db.ObjectId
+  
+  section       CourseSection @relation(fields: [sectionId], references: [id])
+  room          Room?     @relation(fields: [roomId], references: [id])
 }
