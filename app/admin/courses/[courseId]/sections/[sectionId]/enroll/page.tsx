@@ -13,17 +13,49 @@ import { Button } from "@/components/ui/button";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { Checkbox } from "@/components/ui/checkbox";
 
-export default function EnrollStudentsPage({ params }) {
+// Define the types for our component props
+interface EnrollStudentsPageProps {
+  params: {
+    courseId: string;
+    sectionId: string;
+  };
+}
+
+// Define types for our data structures
+interface Student {
+  id: string;
+  enrollmentId: string;
+  department: string;
+  user: {
+    profile: {
+      firstName: string;
+      lastName: string;
+    };
+  };
+}
+
+interface Section {
+  id: string;
+  name: string;
+  capacity: number;
+  enrollments?: Array<any>;
+  course?: {
+    name: string;
+    code: string;
+  };
+}
+
+export default function EnrollStudentsPage({ params }: EnrollStudentsPageProps) {
   const router = useRouter();
   const { courseId, sectionId } = params;
   
-  const [loading, setLoading] = useState(false);
-  const [initialLoading, setInitialLoading] = useState(true);
-  const [error, setError] = useState("");
-  const [section, setSection] = useState(null);
-  const [students, setStudents] = useState([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string>("");
+  const [section, setSection] = useState<Section | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState<string>("");
   
   // Fetch section details and available students
   useEffect(() => {
@@ -88,7 +120,7 @@ export default function EnrollStudentsPage({ params }) {
 
       // Navigate back to section details after successful enrollment
       router.push(`/admin/courses/${courseId}/sections/${sectionId}`);
-    } catch (err) {
+    } catch (err: any) { // Type annotation for error
       setError(err.message || "An error occurred. Please try again.");
     } finally {
       setLoading(false);
@@ -144,7 +176,7 @@ export default function EnrollStudentsPage({ params }) {
             <CardContent>
               <div className="mb-4">
                 <p className="text-sm text-gray-500">
-                  Available spots: {section?.capacity - (section?.enrollments?.length || 0)} out of {section?.capacity}
+                  Available spots: {section ? section.capacity - (section.enrollments?.length || 0) : 0} out of {section?.capacity || 0}
                 </p>
                 <div className="mt-2 flex justify-end">
                   <Button 
@@ -198,7 +230,8 @@ export default function EnrollStudentsPage({ params }) {
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Checkbox 
                               checked={selectedStudents.includes(student.id)}
-                              onChange={() => toggleStudent(student.id)}
+                              onCheckedChange={() => toggleStudent(student.id)}
+                              id={`student-${student.id}`}
                             />
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
