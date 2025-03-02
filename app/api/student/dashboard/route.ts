@@ -1,123 +1,166 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
 import { cookies } from 'next/headers';
+import { getSessionUser } from '@/lib/session-utils';
 
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
+  console.log('Student dashboard API called');
   try {
-    // Verify authentication code is fine...
-    const cookieStore = await cookies();
-    const token = cookieStore.get('auth-token')?.value;
+    // Get the current user from session
+    let user;
     
-    if (!token) {
-      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    try {
+      user = await getSessionUser(req);
+    } catch (sessionError) {
+      console.error('Session fetch failed:', sessionError);
+      
+      // Fallback to direct cookie parsing
+      const cookieStore = await cookies();
+      const token = cookieStore.get('auth-token')?.value;
+      
+      if (!token) {
+        return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
+      }
+      
+      // Let's just return error since we'd need to decode the token
+      return NextResponse.json({ message: 'Session error' }, { status: 401 });
+    }
+    
+    console.log('Session user:', user ? `ID: ${user.id}, Role: ${user.role}` : 'Not found');
+    
+    if (!user) {
+      return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'your-secret-key'
-    ) as { id: string, role: string };
-    
-    if (decoded.role !== 'STUDENT') {
+    // Verify user is a student
+    if (user.role !== 'STUDENT') {
+      console.log('Access denied - user role is', user.role);
       return NextResponse.json({ message: 'Student access required' }, { status: 403 });
     }
     
+    // Get student record with details
     const student = await prisma.student.findFirst({
-      where: { userId: decoded.id }
+      where: { userId: user.id },
+      include: {
+        user: {
+          include: {
+            profile: true,
+          },
+        },
+      },
     });
+    
+    console.log('Student data retrieved:', student ? `ID: ${student.id}, EnrollmentID: ${student.enrollmentId}` : 'Not found');
     
     if (!student) {
       return NextResponse.json({ message: 'Student record not found' }, { status: 404 });
     }
 
-    // Fix 1: Get enrolled courses - use proper joins instead of nested includes
-    const registrations = await prisma.registration.findMany({
+    // FIX: Handle registration queries more safely
+    // First find all registrations without including potentially missing courses
+    const registrationsRaw = await prisma.registration.findMany({
       where: { studentId: student.id },
-      include: {
-        course: true,
+      select: {
+        id: true,
+        courseId: true,
+        semester: true
       }
     });
 
-    // Get course IDs for further queries
-    const courseIds = registrations.map(reg => reg.courseId);
+    console.log(`Retrieved ${registrationsRaw.length} raw registrations`);
 
-    // Get all faculty members for these courses (separate query)
-    const courseFaculties = await prisma.course.findMany({
-      where: { id: { in: courseIds } },
-      select: {
-        id: true,
-        faculty: {
+    // Then get the valid courseIds
+    const courseIds = registrationsRaw.map(reg => reg.courseId);
+    
+    // Fetch courses separately so we only get valid ones
+    const courses = await prisma.course.findMany({
+      where: { 
+        id: { in: courseIds }
+      }
+    });
+    
+    console.log(`Found ${courses.length} valid courses out of ${courseIds.length} registrations`);
+
+    // Use section enrollments for a more reliable way to get enrollment data
+    const sectionEnrollments = await prisma.sectionEnrollment.findMany({
+      where: { studentId: student.id, status: 'ACTIVE' },
+      include: {
+        section: {
           include: {
-            user: {
+            course: true,
+            subjects: {
               include: {
-                profile: true
+                faculty: {
+                  include: {
+                    user: {
+                      include: {
+                        profile: true
+                      }
+                    }
+                  }
+                }
               }
             }
           }
         }
       }
     });
+    console.log(`Found ${sectionEnrollments.length} section enrollments`);
 
-    // Map faculty data to course IDs for easier lookup
-    const facultyByCourseId: Record<string, any> = {};
-    for (const item of courseFaculties) {
-      if (item.faculty) {
-        facultyByCourseId[item.id] = item.faculty;
+    // Extract subjects safely
+    const subjects: any[] = [];
+    sectionEnrollments.forEach(enrollment => {
+      if (enrollment.section && enrollment.section.subjects) {
+        enrollment.section.subjects.forEach(subject => {
+          subjects.push({
+            ...subject,
+            sectionName: enrollment.section.name,
+            courseName: enrollment.section.course?.name || 'Unknown Course',
+            courseId: enrollment.section.courseId
+          });
+        });
       }
-    }
+    });
+    console.log(`Found ${subjects.length} total subjects`);
 
     // Format courses with proper faculty data
-    const courses = registrations.map(reg => {
-      const courseFaculty = facultyByCourseId[reg.courseId];
-      const facultyName = courseFaculty?.user?.profile 
-        ? `${courseFaculty.user.profile.firstName} ${courseFaculty.user.profile.lastName}`
-        : 'Unknown';
+    const formattedCourses = subjects.map(subject => {
+      const facultyName = subject.faculty?.user?.profile 
+        ? `${subject.faculty.user.profile.firstName} ${subject.faculty.user.profile.lastName}`
+        : 'Not Assigned';
       
       return {
-        id: reg.course.id,
-        code: reg.course.code,
-        name: reg.course.name,
-        credits: reg.course.credits,
+        id: subject.id,
+        code: subject.code,
+        name: subject.name,
+        credits: subject.creditHours || 0,
         faculty: {
           name: facultyName
         }
       };
     });
 
-    // Rest of the attendance data code is fine...
+    // Get attendance records
     const attendanceData = await Promise.all(
-      courses.map(async (course) => {
-        const present = await prisma.attendance.count({
+      subjects.map(async (subject) => {
+        const attendanceRecords = await prisma.subjectAttendance.findMany({
           where: {
-            courseId: course.id,
-            studentId: student.id,
-            status: 'PRESENT'
+            subjectId: subject.id,
+            studentId: student.id
           }
         });
 
-        const absent = await prisma.attendance.count({
-          where: {
-            courseId: course.id,
-            studentId: student.id,
-            status: 'ABSENT'
-          }
-        });
-
-        const late = await prisma.attendance.count({
-          where: {
-            courseId: course.id,
-            studentId: student.id,
-            status: 'LATE'
-          }
-        });
+        const present = attendanceRecords.filter(record => record.status === 'PRESENT').length;
+        const absent = attendanceRecords.filter(record => record.status === 'ABSENT').length;
+        const late = attendanceRecords.filter(record => record.status === 'LATE').length;
 
         const total = present + absent + late;
-        const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
+        const percentage = total > 0 ? Math.round((present / total) * 100) : 100; // Default to 100% if no records
 
         return {
-          courseName: course.name,
+          courseName: `${subject.code}: ${subject.name}`,
           present,
           absent,
           late,
@@ -126,48 +169,55 @@ export async function GET(req: NextRequest) {
       })
     );
 
-    // Calculate overall attendance percentage as before...
+    // Calculate overall attendance percentage
     const totalClasses = attendanceData.reduce((sum, item) => sum + item.present + item.absent + item.late, 0);
     const totalPresent = attendanceData.reduce((sum, item) => sum + item.present, 0);
-    const overallAttendance = totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 0;
+    const overallAttendance = totalClasses > 0 ? Math.round((totalPresent / totalClasses) * 100) : 100;
+    console.log(`Overall attendance: ${overallAttendance}% (${totalPresent}/${totalClasses} classes)`);
 
-    // Fix 2: Fix the assignments queries - if Assignment model doesn't exist
-    // Option A: If Assignment model exists in your schema but TypeScript doesn't recognize it
+    // Get upcoming assignments (safely handle if the model doesn't exist)
     let formattedAssignments: any[] = [];
     let pendingCount = 0;
     
     try {
-      // @ts-ignore - Ignore TypeScript error if you're sure the model exists
-      const assignments = await prisma.assignment.findMany({
+      // Get all subjects IDs
+      const subjectIds = subjects.map(subject => subject.id);
+      
+      // Fetch assessments for these subjects with due dates in the future
+      const assessments = await prisma.assessment.findMany({
         where: {
-          courseId: { in: courseIds },
+          subjectId: { in: subjectIds },
           dueDate: { gte: new Date() }
         },
         include: {
-          course: true,
-          submissions: {
-            where: { studentId: student.id }
+          subject: true,
+          marks: {
+            where: { 
+              studentId: student.id 
+            }
           }
         },
         orderBy: { dueDate: 'asc' },
         take: 5
       });
 
-      // Format assignments
-      formattedAssignments = assignments.map((assignment: { submissions: any[]; id: any; title: any; course: { code: any; name: any; }; dueDate: { toISOString: () => any; }; }) => {
-        const submission = assignment.submissions[0];
+      console.log(`Found ${assessments.length} upcoming assessments`);
+      
+      // Format assessments as assignments
+      formattedAssignments = assessments.map(assessment => {
+        const submission = assessment.marks.length > 0 ? assessment.marks[0] : null;
         let status: "pending" | "submitted" | "graded" = "pending";
 
         if (submission) {
-          status = submission.grade ? "graded" : "submitted";
+          status = submission.evaluatedAt ? "graded" : "submitted";
         }
 
         return {
-          id: assignment.id,
-          title: assignment.title,
-          courseCode: assignment.course.code,
-          courseName: assignment.course.name,
-          dueDate: assignment.dueDate.toISOString(),
+          id: assessment.id,
+          title: assessment.title,
+          courseCode: assessment.subject.code,
+          courseName: assessment.subject.name,
+          dueDate: assessment.dueDate?.toISOString() || new Date().toISOString(),
           status
         };
       });
@@ -175,14 +225,12 @@ export async function GET(req: NextRequest) {
       // Count pending assignments
       pendingCount = formattedAssignments.filter(a => a.status === "pending").length;
     } catch (error) {
-      console.error("Assignment fetch error:", error);
-      // Provide mock data if model doesn't exist
+      console.error("Assessment fetch error:", error);
       formattedAssignments = [];
       pendingCount = 0;
     }
 
-    // Fix 3: Fix the grade records queries
-    // Add grade field to grade records if it's missing
+    // Get grade records
     const gradeRecords = await prisma.gradeRecord.findMany({
       where: { 
         studentId: student.id,
@@ -190,14 +238,14 @@ export async function GET(req: NextRequest) {
       },
       include: { course: true }
     });
+    console.log(`Found ${gradeRecords.length} grade records`);
 
-    // Format grades with safe access
+    // Format grades
     const formattedGrades = gradeRecords.map(record => {
-      // Calculate a grade based on totalMark if grade field doesn't exist
+      // Calculate grade based on total mark
       let grade = 'N/A';
       const totalMark = record.totalMark || 0;
       
-      // Simple grade calculation algorithm
       if (totalMark >= 90) grade = 'A+';
       else if (totalMark >= 80) grade = 'A';
       else if (totalMark >= 70) grade = 'B+';
@@ -213,35 +261,37 @@ export async function GET(req: NextRequest) {
         sessionalMark: record.sessionalMark || 0,
         attendanceMark: record.attendanceMark || 0,
         totalMark: record.totalMark || 0,
-        grade: grade // Using calculated grade if field doesn't exist
+        grade: grade
       };
     });
 
-    // Calculate average grade as before...
-    const gradeValues: Record<string, number> = {
+    // Calculate average grade point
+    const gradePoints: Record<string, number> = {
       'A+': 10, 'A': 9, 'B+': 8, 'B': 7, 'C+': 6, 'C': 5, 'D': 4, 'F': 0
     };
     
     let totalGradePoints = 0;
     let gradesWithValue = 0;
     
-    for (const grade of formattedGrades) {
-      if (grade.grade in gradeValues) {
-        totalGradePoints += gradeValues[grade.grade];
+    formattedGrades.forEach(grade => {
+      if (grade.grade in gradePoints) {
+        totalGradePoints += gradePoints[grade.grade];
         gradesWithValue++;
       }
-    }
+    });
     
     const avgGrade = gradesWithValue > 0 ? parseFloat((totalGradePoints / gradesWithValue).toFixed(2)) : 0;
+    console.log(`Average grade point: ${avgGrade} (from ${gradesWithValue} graded courses)`);
 
     // Return dashboard data
+    console.log('Student dashboard data compiled successfully');
     return NextResponse.json({
-      enrolledCourses: courses.length,
-      attendancePercentage: overallAttendance,
+      enrolledCourses: formattedCourses.length,
+      attendancePercentage: overallAttendance || 100, // Default to 100 if calculation fails
       pendingAssignments: pendingCount,
       avgGrade,
-      courses,
-      attendance: attendanceData,
+      courses: formattedCourses,
+      attendance: attendanceData || [],
       assignments: formattedAssignments,
       grades: formattedGrades
     });
@@ -249,7 +299,7 @@ export async function GET(req: NextRequest) {
   } catch (error: any) {
     console.error('Student dashboard data fetch error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch student dashboard data' }, 
+      { message: 'Failed to fetch student dashboard data', error: error.message }, 
       { status: 500 }
     );
   } finally {
