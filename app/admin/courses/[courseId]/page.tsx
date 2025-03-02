@@ -37,7 +37,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 interface CourseDetailsPageProps {
   params: {
     courseId: string;
-  }
+  },
+  searchParams: { [key: string]: string | string[] | undefined }
 }
 
 export default function CourseDetailsPage({ params }: CourseDetailsPageProps) {
