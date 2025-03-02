@@ -443,3 +443,57 @@ model ClassSchedule {
   section       CourseSection @relation(fields: [sectionId], references: [id])
   room          Room?     @relation(fields: [roomId], references: [id])
 }
+
+// Notice model for announcements and communications
+model Notice {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  title         String
+  content       String
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  publishDate   DateTime  @default(now())
+  expiryDate    DateTime?
+  isPublished   Boolean   @default(true)
+  isPinned      Boolean   @default(false)
+  
+  // Targeting fields
+  targetType    NoticeTargetType @default(ALL)
+  targetCourseIds String[]  @db.ObjectId     // For course targeting
+  targetDepartments String[] // For department targeting
+  targetSectionIds String[] @db.ObjectId     // For section targeting
+  targetUserRoles Role[]    // For targeting by role
+  
+  // Author information
+  authorId      String    @db.ObjectId
+  authorRole    Role
+  authorName    String    // Store name separately to avoid joins
+  
+  // Attachments and links
+  attachmentUrls String[]
+  linkUrl        String?
+  
+  // Relationships with recipients (if needed for advanced features)
+  viewedBy      NoticeView[]
+}
+
+// Enum for notice targeting
+enum NoticeTargetType {
+  ALL           // For all users
+  ROLE          // Specific roles (faculty, student, admin)
+  DEPARTMENT    // Specific departments
+  COURSE        // Specific courses
+  SECTION       // Specific sections/classes
+  CUSTOM        // Custom targeting (combination)
+}
+
+// Model to track if users viewed a notice (optional)
+model NoticeView {
+  id            String    @id @default(auto()) @map("_id") @db.ObjectId
+  noticeId      String    @db.ObjectId
+  userId        String    @db.ObjectId
+  viewedAt      DateTime  @default(now())
+  
+  notice        Notice    @relation(fields: [noticeId], references: [id])
+  
+  @@unique([noticeId, userId])
+}
