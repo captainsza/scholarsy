@@ -21,11 +21,10 @@ import {
   Settings,
   Search,
   LibraryBig,
-  Award
+  Award,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Badge } from "@/components/ui/Badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -46,11 +45,15 @@ import {
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "@/components/ui/toastall";
 
-export default function StudentLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+// Type definitions
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  path: string;
+  badge?: { value: string; variant: string };
+}
+
+export default function StudentLayout({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -60,59 +63,46 @@ export default function StudentLayout({
   const pathname = usePathname();
   const router = useRouter();
 
-  // Close sidebar on smaller screens by default
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 1024) {
-        setIsSidebarOpen(false);
-      } else {
-        setIsSidebarOpen(true);
-      }
+      setIsSidebarOpen(window.innerWidth >= 1024);
+      setIsMobileMenuOpen(false);
     };
-
-    // Set initial state
     handleResize();
-
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  // Close mobile menu when route changes
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
 
-  // Handle logout with confirmation
   const handleLogout = async () => {
     try {
       await logout();
       setIsLogoutDialogOpen(false);
-      toast({
-        title: "Logged out successfully",
-        description: "You have been logged out of the system",
-      });
+      toast({ title: "Logged Out", description: "See you soon!" });
       router.push("/login");
     } catch (error) {
       console.error("Logout failed:", error);
       toast({
-        title: "Logout failed",
-        description: "An error occurred during logout",
+        title: "Error",
+        description: "Logout failed. Please try again.",
         variant: "destructive",
       });
     }
   };
 
-  // Navigation items with icon, label, path, and badge
-  const navItems = [
+  const navItems: NavItem[] = [
     { icon: Home, label: "Dashboard", path: "/student/dashboard" },
     { icon: BookOpen, label: "My Courses", path: "/student/courses" },
     { icon: Calendar, label: "Schedule", path: "/student/schedule" },
     { icon: ClipboardCheck, label: "Attendance", path: "/student/attendance" },
-    { 
-      icon: Award, 
-      label: "Grades", 
+    {
+      icon: Award,
+      label: "Grades",
       path: "/student/grades",
-      badge: { value: "Updated", variant: "green" } 
+      badge: { value: "Updated", variant: "cyan" },
     },
     { icon: FileText, label: "Assignments", path: "/student/assignments" },
     { icon: Bell, label: "Notices", path: "/student/notices" },
@@ -122,15 +112,15 @@ export default function StudentLayout({
   ];
 
   return (
-    <div className="h-screen flex overflow-hidden bg-gradient-to-br from-gray-50 to-teal-50/40">
-      {/* Mobile Navigation Overlay */}
+    <div className="h-screen flex overflow-hidden bg-gradient-to-br from-cyan-50/50 to-blue-100/50">
+      {/* Mobile Overlay */}
       <AnimatePresence>
         {isMobileMenuOpen && (
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 lg:hidden"
+            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
             onClick={() => setIsMobileMenuOpen(false)}
           />
         )}
@@ -140,33 +130,27 @@ export default function StudentLayout({
       <AnimatePresence>
         {(isSidebarOpen || isMobileMenuOpen) && (
           <motion.aside
-            initial={{ x: -300, opacity: 0 }}
-            animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
-            transition={{ type: "spring", bounce: 0.1, duration: 0.4 }}
-            className={`fixed inset-y-0 left-0 w-64 bg-white border-r border-gray-100 shadow-lg lg:shadow-none z-40 lg:static flex flex-col`}
+            initial={{ x: -300 }}
+            animate={{ x: 0 }}
+            exit={{ x: -300 }}
+            transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="fixed inset-y-0 left-0 w-64 bg-white/80 backdrop-blur-md border-r border-cyan-100/50 z-40 lg:static flex flex-col shadow-lg"
           >
             {/* Sidebar Header */}
-            <div className="flex items-center justify-between h-16 px-4 border-b">
+            <div className="flex items-center justify-between h-16 px-4 border-b border-cyan-100/50">
               <Link href="/student/dashboard" className="flex items-center">
-                <div className="w-8 h-8 rounded-md bg-gradient-to-br from-teal-500 to-green-600 flex items-center justify-center mr-2">
+                <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center mr-2 shadow-md">
                   <span className="text-white font-bold text-lg">S</span>
                 </div>
-                <span className="text-xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-teal-600 to-green-600">
+                <span className="text-xl font-semibold bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent">
                   ScholarSync
                 </span>
               </Link>
               <button
-                onClick={() => {
-                  if (window.innerWidth < 1024) {
-                    setIsMobileMenuOpen(false);
-                  } else {
-                    setIsSidebarOpen(false);
-                  }
-                }}
-                className="p-1 rounded-md hover:bg-gray-100 lg:hidden"
+                onClick={() => (window.innerWidth < 1024 ? setIsMobileMenuOpen(false) : setIsSidebarOpen(false))}
+                className="p-1 rounded-full hover:bg-cyan-50/50 transition-colors lg:hidden"
               >
-                <X size={20} className="text-gray-500" />
+                <X size={20} className="text-gray-600" />
               </button>
             </div>
 
@@ -175,39 +159,41 @@ export default function StudentLayout({
               <ul className="space-y-1">
                 {navItems.map((item) => (
                   <li key={item.path}>
-                    <TooltipProvider delayDuration={300}>
+                    <TooltipProvider delayDuration={200}>
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Link
                             href={item.path}
-                            className={`flex items-center px-4 py-3 rounded-lg transition-all group relative ${
+                            className={`flex items-center px-4 py-3 rounded-xl transition-all group relative ${
                               pathname === item.path
-                                ? "bg-teal-50 text-teal-700"
-                                : "hover:bg-gray-50 text-gray-700 hover:text-teal-600"
+                                ? "bg-cyan-50/50 text-cyan-700"
+                                : "text-gray-700 hover:bg-cyan-50/50 hover:text-cyan-600"
                             }`}
                           >
                             {pathname === item.path && (
                               <motion.div
                                 layoutId="activeNav"
-                                className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-teal-600 rounded-r-full"
+                                className="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-cyan-500 rounded-r-full"
                               />
                             )}
                             <item.icon
                               className={`h-5 w-5 mr-3 ${
                                 pathname === item.path
-                                  ? "text-teal-600"
-                                  : "text-gray-500 group-hover:text-teal-600"
+                                  ? "text-cyan-600"
+                                  : "text-gray-500 group-hover:text-cyan-600"
                               }`}
                             />
                             <span className="flex-1">{item.label}</span>
                             {item.badge && (
-                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-600">
+                              <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-cyan-100 text-cyan-600">
                                 {item.badge.value}
                               </span>
                             )}
                           </Link>
                         </TooltipTrigger>
-                        <TooltipContent side="right">{item.label}</TooltipContent>
+                        <TooltipContent side="right" className="bg-cyan-600 text-white">
+                          {item.label}
+                        </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
                   </li>
@@ -216,19 +202,19 @@ export default function StudentLayout({
             </nav>
 
             {/* User Profile */}
-            <div className="border-t border-gray-100 p-4">
+            <div className="border-t border-cyan-100/50 p-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex items-center w-full px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-                    <Avatar className="h-8 w-8 mr-2 border border-gray-200">
+                  <button className="flex items-center w-full px-3 py-2 rounded-xl hover:bg-cyan-50/50 transition-all">
+                    <Avatar className="h-8 w-8 mr-2 border border-cyan-200/50">
                       <AvatarImage src={user?.profile?.profileImage || ""} />
-                      <AvatarFallback className="bg-teal-100 text-teal-600">
+                      <AvatarFallback className="bg-cyan-100 text-cyan-600">
                         {user?.profile?.firstName?.[0]}
                         {user?.profile?.lastName?.[0]}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex-1 text-left">
-                      <p className="text-sm font-medium">
+                      <p className="text-sm font-medium text-gray-900">
                         {user?.profile?.firstName} {user?.profile?.lastName}
                       </p>
                       <p className="text-xs text-gray-500">
@@ -238,19 +224,13 @@ export default function StudentLayout({
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
-                  <DropdownMenuItem 
-                    onClick={() => router.push("/student/profile")}
-                    className="cursor-pointer"
-                  >
-                    <User className="h-4 w-4 mr-2" />
+                <DropdownMenuContent align="start" className="w-56 bg-white/95 backdrop-blur-md border-cyan-100/50">
+                  <DropdownMenuItem onClick={() => router.push("/student/profile")} className="cursor-pointer">
+                    <User className="h-4 w-4 mr-2 text-cyan-600" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem 
-                    onClick={() => router.push("/student/settings")}
-                    className="cursor-pointer"
-                  >
-                    <Settings className="h-4 w-4 mr-2" />
+                  <DropdownMenuItem onClick={() => router.push("/student/settings")} className="cursor-pointer">
+                    <Settings className="h-4 w-4 mr-2 text-cyan-600" />
                     Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -271,58 +251,50 @@ export default function StudentLayout({
       {/* Main Content */}
       <div className="flex-1 flex flex-col overflow-hidden h-full">
         {/* Top Header */}
-        <header className="bg-white border-b border-gray-100 shadow-sm z-10">
+        <header className="bg-white/80 backdrop-blur-md border-b border-cyan-100/50 shadow-sm z-10">
           <div className="flex items-center justify-between h-16 px-4 lg:px-6">
-            {/* Left: Toggle and Breadcrumbs */}
             <div className="flex items-center gap-4">
-              {/* Sidebar Toggle */}
               <button
-                onClick={() => {
-                  if (window.innerWidth < 1024) {
-                    setIsMobileMenuOpen(!isMobileMenuOpen);
-                  } else {
-                    setIsSidebarOpen(!isSidebarOpen);
-                  }
-                }}
-                className="p-2 rounded-md hover:bg-gray-100 transition-colors"
+                onClick={() =>
+                  window.innerWidth < 1024
+                    ? setIsMobileMenuOpen(!isMobileMenuOpen)
+                    : setIsSidebarOpen(!isSidebarOpen)
+                }
+                className="p-2 rounded-full hover:bg-cyan-50 transition-colors"
                 aria-label="Toggle sidebar"
               >
-                <Menu size={20} className="text-gray-600" />
+                <Menu size={20} className="text-cyan-600" />
               </button>
-
-              {/* Breadcrumb */}
               <nav className="hidden sm:flex items-center text-sm">
-                <Link href="/student/dashboard" className="text-gray-500 hover:text-teal-600">
+                <Link href="/student/dashboard" className="text-gray-600 hover:text-cyan-600">
                   Student
                 </Link>
                 <span className="mx-2 text-gray-400">/</span>
-                <span className="text-gray-800 font-medium">
-                  {pathname === "/student/dashboard"
-                    ? "Dashboard"
-                    : (pathname.split("/").pop() || "").charAt(0).toUpperCase() +
-                      (pathname.split("/").pop() || "").slice(1).replace(/-/g, " ")}
+                <span className="text-gray-900 font-medium bg-gradient-to-r from-cyan-500 to-blue-600 bg-clip-text text-transparent">
+                  {pathname.split("/").pop()?.replace(/^\w/, (c) => c.toUpperCase()).replace(/-/g, " ") || "Dashboard"}
                 </span>
               </nav>
             </div>
-
-            {/* Right: Search, Notifications, User */}
             <div className="flex items-center gap-3">
-              {/* Search */}
-              <div className={`relative ${isSearchExpanded ? 'w-64' : 'w-40'} transition-all duration-300`}>
+              <div
+                className={`relative transition-all duration-300 ${isSearchExpanded ? "w-64" : "w-40"}`}
+              >
                 <Input
                   placeholder="Search..."
-                  className="pl-9 h-9 bg-gray-50 border-gray-200 focus:bg-white"
+                  className="pl-9 h-9 bg-cyan-50/50 border-cyan-200/50 focus:bg-white focus:border-cyan-400 rounded-full"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   onFocus={() => setIsSearchExpanded(true)}
                   onBlur={() => setIsSearchExpanded(false)}
                 />
-                <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-cyan-500" />
               </div>
-
-              {/* Notifications */}
-              <Button variant="ghost" size="icon" className="relative">
-                <Bell className="h-5 w-5 text-gray-600" />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="relative rounded-full hover:bg-cyan-50"
+              >
+                <Bell className="h-5 w-5 text-cyan-600" />
                 <span className="absolute top-0 right-0 h-2.5 w-2.5 bg-red-500 rounded-full border-2 border-white"></span>
               </Button>
             </div>
@@ -330,14 +302,14 @@ export default function StudentLayout({
         </header>
 
         {/* Content Area */}
-        <main className="flex-1 overflow-auto bg-transparent">
+        <main className="flex-1 overflow-auto bg-transparent p-6">
           <AnimatePresence mode="wait">
             <motion.div
               key={pathname}
-              initial={{ opacity: 0, y: 5 }}
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -5 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3 }}
               className="h-full"
             >
               {children}
@@ -346,33 +318,33 @@ export default function StudentLayout({
         </main>
       </div>
 
-      {/* Logout Confirmation Dialog */}
+      {/* Logout Dialog */}
       <Dialog open={isLogoutDialogOpen} onOpenChange={setIsLogoutDialogOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md bg-white/95 backdrop-blur-md border-cyan-100/50">
           <DialogHeader>
-            <DialogTitle>Confirm Logout</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to log out of your student account?
+            <DialogTitle className="text-gray-900">Confirm Logout</DialogTitle>
+            <DialogDescription className="text-gray-600">
+              Are you sure you want to leave your student dashboard?
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-center py-3">
-            <div className="rounded-full bg-yellow-50 p-3">
-              <AlertTriangle className="h-6 w-6 text-yellow-500" />
+            <div className="rounded-full bg-cyan-50 p-3">
+              <AlertTriangle className="h-6 w-6 text-cyan-500" />
             </div>
           </div>
-          <DialogFooter className="sm:justify-center gap-2 mt-2">
+          <DialogFooter className="sm:justify-center gap-3 mt-2">
             <Button
               variant="outline"
               onClick={() => setIsLogoutDialogOpen(false)}
+              className="border-cyan-200 text-cyan-600 hover:bg-cyan-50"
             >
               Cancel
             </Button>
-            <Button 
-              variant="default" 
-              className="bg-gradient-to-r from-teal-600 to-green-600 hover:from-teal-700 hover:to-green-700"
+            <Button
               onClick={handleLogout}
+              className="bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-600 hover:to-blue-700 text-white"
             >
-              Yes, Log Out
+              Log Out
             </Button>
           </DialogFooter>
         </DialogContent>
