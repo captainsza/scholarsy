@@ -122,10 +122,10 @@ export default function Home() {
                   Start Now
                 </Link>
                 <Link
-                  href="/demo"
+                  href="/login"
                   className="px-6 py-3 border border-cyan-500 text-cyan-600 rounded-full hover:bg-cyan-50 transition-colors"
                 >
-                  See Demo
+                  Login
                 </Link>
               </div>
             </motion.div>
