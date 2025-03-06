@@ -99,7 +99,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     { icon: Users, label: "Students", path: "/faculty/students" },
     { icon: ClipboardCheck, label: "Attendance", path: "/faculty/attendance", badge: { value: "New", variant: "indigo" } },
     { icon: FileText, label: "Assessments", path: "/faculty/assessments" },
-    { icon: PenTool, label: "Grading", path: "/faculty/grading" },
+    { icon: PenTool, label: "Grades", path: "/faculty/grades" },
     { icon: Calendar, label: "Schedule", path: "/faculty/schedule" },
     { icon: Bell, label: "Notices", path: "/faculty/notices" },
     { icon: GraduationCap, label: "Resources", path: "/faculty/resources" },
