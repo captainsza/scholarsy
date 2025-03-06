@@ -79,13 +79,17 @@ export default function RegisterForm() {
       email: "", password: "", confirmPassword: "", role: initialRole,
       firstName: "", lastName: "", gender: "", phone: "", department: "", dob: "", bloodGroup: "",
       enrollmentId: "", fatherName: "", motherName: "", admissionSession: "", admissionSemester: "", academicStatus: "REGULAR",
-      instituteCode: "", instituteName: "", courseName: "", branchName: "", currentSemester: "",
+      instituteName: "", courseName: "", branchName: "", currentSemester: "",
       address: "", city: "", state: "", country: "India", pincode: "",
       profileImageBase64: "",
     };
   });
 
-  const totalSteps = useMemo(() => formData.role === "STUDENT" ? 5 : 2, [formData.role]);
+  const totalSteps = useMemo(() => {
+    if (formData.role === "STUDENT") return 4; // Login > Personal > Academic > Address
+    if (formData.role === "FACULTY") return 3; // Login > Personal > Address
+    return 2; // Admin
+  }, [formData.role]);
 
   const handleChange = useCallback((e: ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -155,16 +159,28 @@ export default function RegisterForm() {
         formData.password !== formData.confirmPassword ? "Passwords do not match" : null,
       2: () => !formData.firstName ? "First name is required" :
         !formData.lastName ? "Last name is required" :
-        !formData.gender && formData.role === "STUDENT" ? "Gender is required" :
-        !formData.department ? "Department is required" : null,
-      3: () => !formData.enrollmentId ? "Enrollment ID is required" :
-        !formData.fatherName ? "Father's name is required" :
-        !formData.motherName ? "Mother's name is required" : null,
-      4: () => !formData.instituteCode ? "Institute code is required" :
-        !formData.instituteName ? "Institute name is required" : null,
-      5: () => !formData.address ? "Address is required" :
+        !formData.phone ? "Phone number is required" :
+        formData.role === "STUDENT" && !formData.gender ? "Gender is required" :
+        formData.role === "STUDENT" && !formData.dob ? "Date of birth is required" :
+        formData.role === "STUDENT" && !formData.fatherName ? "Father's name is required" :
+        formData.role === "STUDENT" && !formData.motherName ? "Mother's name is required" : null,
+      3: () => {
+        if (formData.role === "STUDENT") {
+          return !formData.enrollmentId ? "Enrollment ID is required" :
+            !formData.department ? "Department is required" :
+            !formData.instituteName ? "Institute name is required" :
+            !formData.courseName ? "Course name is required" :
+            !formData.currentSemester ? "Current semester is required" : null;
+        }
+        // Faculty validation for address step
+        return !formData.address ? "Address is required" :
+          !formData.city ? "City is required" :
+          !formData.state ? "State is required" : null;
+      },
+      4: () => formData.role === "STUDENT" ? 
+        !formData.address ? "Address is required" :
         !formData.city ? "City is required" :
-        !formData.state ? "State is required" : null,
+        !formData.state ? "State is required" : null : null,
     };
     return validations[state.currentStep]?.() || null;
   }, [state.currentStep, formData]);
@@ -225,31 +241,30 @@ export default function RegisterForm() {
     ),
     2: () => (
       <>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Personal Details</h3>
         <div className="grid grid-cols-2 gap-4">
           <FormInput label="First Name" id="firstName" value={formData.firstName} onChange={handleChange} required placeholder="John" />
           <FormInput label="Last Name" id="lastName" value={formData.lastName} onChange={handleChange} required placeholder="Doe" />
         </div>
         <ImageUploadField />
-        {formData.role === "STUDENT" && (
-          <FormSelect
-            label="Gender"
-            id="gender"
-            value={formData.gender}
-            onChange={handleChange}
-            required
-            options={[
-              { value: "", label: "Select gender" },
-              { value: "male", label: "Male" },
-              { value: "female", label: "Female" },
-              { value: "other", label: "Other" },
-              { value: "prefer_not_to_say", label: "Prefer not to say" },
-            ]}
-          />
-        )}
-        <FormInput label="Phone Number" id="phone" type="tel" value={formData.phone} onChange={handleChange} placeholder="+91 123-456-7890" />
-        <FormInput label="Department" id="department" value={formData.department} onChange={handleChange} required placeholder="e.g., Computer Science" />
-        {formData.role === "STUDENT" && (
+        <FormInput label="Phone Number" id="phone" type="tel" value={formData.phone} onChange={handleChange} required placeholder="+91 123-456-7890" />
+        
+        {formData.role === "STUDENT" ? (
           <>
+            <FormSelect
+              label="Gender"
+              id="gender"
+              value={formData.gender}
+              onChange={handleChange}
+              required
+              options={[
+                { value: "", label: "Select gender" },
+                { value: "male", label: "Male" },
+                { value: "female", label: "Female" },
+                { value: "other", label: "Other" },
+                { value: "prefer_not_to_say", label: "Prefer not to say" },
+              ]}
+            />
             <FormInput label="Date of Birth" id="dob" type="date" value={formData.dob} onChange={handleChange} required />
             <FormSelect
               label="Blood Group"
@@ -261,47 +276,66 @@ export default function RegisterForm() {
                 ...["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map(bg => ({ value: bg, label: bg })),
               ]}
             />
+            <FormInput label="Father's Name" id="fatherName" value={formData.fatherName} onChange={handleChange} required placeholder="e.g., Robert Doe" />
+            <FormInput label="Mother's Name" id="motherName" value={formData.motherName} onChange={handleChange} required placeholder="e.g., Jane Doe" />
           </>
+        ) : (
+          <FormInput label="Department" id="department" value={formData.department} onChange={handleChange} required placeholder="e.g., Computer Science" />
         )}
       </>
     ),
-    3: () => formData.role === "STUDENT" ? (
-      <>
-        <FormInput label="Enrollment ID" id="enrollmentId" value={formData.enrollmentId} onChange={handleChange} required placeholder="e.g., CS2023001" />
-        <FormInput label="Father's Name" id="fatherName" value={formData.fatherName} onChange={handleChange} required placeholder="e.g., Robert Doe" />
-        <FormInput label="Mother's Name" id="motherName" value={formData.motherName} onChange={handleChange} required placeholder="e.g., Jane Doe" />
-        <div className="grid grid-cols-2 gap-4">
-          <FormInput label="Admission Session" id="admissionSession" value={formData.admissionSession} onChange={handleChange} required placeholder="e.g., 2023-2024" />
-          <FormInput label="Admission Semester" id="admissionSemester" value={formData.admissionSemester} onChange={handleChange} required placeholder="e.g., Fall" />
-        </div>
-        <FormSelect
-          label="Academic Status"
-          id="academicStatus"
-          value={formData.academicStatus}
-          onChange={handleChange}
-          required
-          options={[
-            { value: "REGULAR", label: "Regular" },
-            { value: "BACKLOG", label: "Backlog" },
-            { value: "DETAINED", label: "Detained" },
-            { value: "READMISSION", label: "Re-Admission" },
-          ]}
-        />
-      </>
-    ) : null,
+    3: () => {
+      if (formData.role === "STUDENT") {
+        return (
+          <>
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Academic Details</h3>
+            <FormInput label="Enrollment ID" id="enrollmentId" value={formData.enrollmentId} onChange={handleChange} required placeholder="e.g., CS2023001" />
+            <FormInput label="Department" id="department" value={formData.department} onChange={handleChange} required placeholder="e.g., Computer Science" />
+            <div className="grid grid-cols-2 gap-4">
+             
+              <FormInput label="Institute Name" id="instituteName" value={formData.instituteName} onChange={handleChange} required placeholder="e.g., XYZ University" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput label="Course Name" id="courseName" value={formData.courseName} onChange={handleChange} required placeholder="e.g., B.Tech" />
+              <FormInput label="Branch Name" id="branchName" value={formData.branchName} onChange={handleChange} required placeholder="e.g., Computer Science" />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <FormInput label="Admission Session" id="admissionSession" value={formData.admissionSession} onChange={handleChange} required placeholder="e.g., 2023-2024" />
+              <FormInput label="Current Semester" id="currentSemester" value={formData.currentSemester} onChange={handleChange} required placeholder="e.g., 3" />
+            </div>
+            <FormSelect
+              label="Academic Status"
+              id="academicStatus"
+              value={formData.academicStatus}
+              onChange={handleChange}
+              required
+              options={[
+                { value: "REGULAR", label: "Regular" },
+                { value: "BACKLOG", label: "Backlog" },
+                { value: "DETAINED", label: "Detained" },
+                { value: "READMISSION", label: "Re-Admission" },
+              ]}
+            />
+          </>
+        );
+      }
+      // Faculty address form
+      return (
+        <>
+          <h3 className="text-lg font-medium text-gray-900 mb-4">Address Details</h3>
+          <FormInput label="Address" id="address" value={formData.address} onChange={handleChange} required placeholder="e.g., 123 Main St" />
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput label="City/District" id="city" value={formData.city} onChange={handleChange} required placeholder="e.g., New Delhi" />
+            <FormInput label="State" id="state" value={formData.state} onChange={handleChange} required placeholder="e.g., Delhi" />
+            <FormInput label="Country" id="country" value={formData.country} onChange={handleChange} required placeholder="e.g., India" />
+            <FormInput label="Pincode" id="pincode" value={formData.pincode} onChange={handleChange} required placeholder="e.g., 110001" />
+          </div>
+        </>
+      );
+    },
     4: () => formData.role === "STUDENT" ? (
       <>
-        <div className="grid grid-size-2 gap-4">
-          <FormInput label="Institute Code" id="instituteCode" value={formData.instituteCode} onChange={handleChange} required placeholder="e.g., INST001" />
-          <FormInput label="Institute Name" id="instituteName" value={formData.instituteName} onChange={handleChange} required placeholder="e.g., XYZ University" />
-          <FormInput label="Course Name" id="courseName" value={formData.courseName} onChange={handleChange} required placeholder="e.g., B.Tech" />
-          <FormInput label="Branch Name" id="branchName" value={formData.branchName} onChange={handleChange} required placeholder="e.g., Computer Science" />
-        </div>
-        <FormInput label="Current Semester" id="currentSemester" value={formData.currentSemester} onChange={handleChange} required placeholder="e.g., Semester 3" />
-      </>
-    ) : null,
-    5: () => formData.role === "STUDENT" ? (
-      <>
+        <h3 className="text-lg font-medium text-gray-900 mb-4">Address Details</h3>
         <FormInput label="Address" id="address" value={formData.address} onChange={handleChange} required placeholder="e.g., 123 Main St" />
         <div className="grid grid-cols-2 gap-4">
           <FormInput label="City/District" id="city" value={formData.city} onChange={handleChange} required placeholder="e.g., New Delhi" />
@@ -423,56 +457,54 @@ export default function RegisterForm() {
                   ) : state.currentStep === totalSteps ? "Register" : "Next"}
                 </motion.button>
               </div>
+              <div className="mt-4 text-center text-sm text-gray-600">
+                Already have an account?{" "}
+                <Link href="/login" className="text-cyan-600 hover:text-cyan-500 font-medium">
+                  Log in
+                </Link>
+              </div>
             </form>
           </motion.div>
-          <p className="text-center text-sm text-gray-600">
-            Already have an account?{" "}
-            <Link href="/login" className="font-medium text-cyan-600 hover:text-cyan-700">
-              Log in here
-            </Link>
-          </p>
         </motion.div>
       </div>
 
-      {/* Right Side - Illustration */}
+      {/* Right Side - Features */}
       <motion.div
-        initial={{ x: 50, opacity: 0 }}
+        initial={{ x: 30, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
-        transition={{ type: "spring", stiffness: 100, delay: 0.3 }}
-        className="hidden md:flex flex-1 items-center justify-center p-8 bg-gradient-to-br from-cyan-200/30 to-blue-200/30 backdrop-blur-sm"
+        transition={{ delay: 0.2 }}
+        className="flex-1 p-12 hidden md:block"
       >
-        <div className="max-w-md text-center">
-          <motion.div
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="mb-8"
-          >
-            <h3 className="text-3xl font-bold text-gray-900 mb-4">
-              Join ScholarSync
+        <div className="space-y-8">
+          <div className="text-center space-y-2">
+            <h3 className="text-2xl font-bold text-gray-900">
+              Features You'll Love
             </h3>
-            <p className="text-gray-700 mb-6">
-              Start your academic journey with a platform designed for success.
+            <p className="text-gray-600">
+              Join ScholarSync to access these amazing features
             </p>
-            <div className="grid grid-cols-2 gap-4 mb-6">
-              {[
-                { title: "Profile Setup", color: "cyan" },
-                { title: "Course Access", color: "blue" },
-                { title: "Progress Tracking", color: "indigo" },
-                { title: "Community", color: "purple" },
-              ].map((feature, index) => (
-                <motion.div
-                  key={index}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.6 + index * 0.1 }}
-                  className={`bg-${feature.color}-50/50 backdrop-blur-sm border-${feature.color}-200/50 border rounded-lg p-4 shadow-sm`}
-                >
-                  <div className={`text-${feature.color}-600 font-medium`}>{feature.title}</div>
-                </motion.div>
-              ))}
-            </div>
-          </motion.div>
+          </div>
+
+          <div className="grid gap-4">
+            {[
+              { title: "Academic Management", color: "blue" },
+              { title: "Student Tracking", color: "cyan" },
+              { title: "Smart Attendance", color: "teal" },
+              { title: "Grade Management", color: "emerald" },
+              { title: "Progress Tracking", color: "indigo" },
+              { title: "Community", color: "purple" },
+            ].map((feature, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.6 + index * 0.1 }}
+                className={`bg-${feature.color}-50/50 backdrop-blur-sm border-${feature.color}-200/50 border rounded-lg p-4 shadow-sm`}
+              >
+                <div className={`text-${feature.color}-600 font-medium`}>{feature.title}</div>
+              </motion.div>
+            ))}
+          </div>
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}

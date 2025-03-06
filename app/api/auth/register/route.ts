@@ -29,7 +29,6 @@ export async function POST(req: NextRequest) {
       admissionSession,
       admissionSemester,
       academicStatus,
-      instituteCode,
       instituteName,
       courseName,
       branchName,
@@ -106,7 +105,7 @@ export async function POST(req: NextRequest) {
             data: {
               userId: any; department: any; enrollmentId: any;
               // Add enhanced student fields
-              gender: any; dob: Date | undefined; bloodGroup: any; fatherName: any; motherName: any; admissionSession: any; admissionSemester: any; academicStatus: any; instituteCode: any; instituteName: any; courseName: any; branchName: any; currentSemester: any; address: any; city: any; state: any; country: any; pincode: any;
+              gender: any; dob: Date | undefined; bloodGroup: any; fatherName: any; motherName: any; admissionSession: any; admissionSemester: any; academicStatus: any; instituteName: any; courseName: any; branchName: any; currentSemester: any; address: any; city: any; state: any; country: any; pincode: any;
             };
           }) => any;
         }; faculty: { create: (arg0: { data: { userId: any; department: any; }; }) => any; }; admin: { create: (arg0: { data: { userId: any; }; }) => any; }; verificationToken: { create: (arg0: { data: { identifier: any; token: string; expires: Date; }; }) => any; };
@@ -152,7 +151,6 @@ export async function POST(req: NextRequest) {
             admissionSession,
             admissionSemester,
             academicStatus,
-            instituteCode,
             instituteName,
             courseName,
             branchName,

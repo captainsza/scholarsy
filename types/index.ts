@@ -48,7 +48,6 @@ export interface RegistrationData {
   admissionSession: string;
   admissionSemester: string;
   academicStatus: "REGULAR" | "BACKLOG" | "DETAINED" | "READMISSION";
-  instituteCode: string;
   instituteName: string;
   courseName: string;
   branchName: string;
