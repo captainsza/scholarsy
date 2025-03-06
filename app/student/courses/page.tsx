@@ -37,8 +37,6 @@ export default function StudentCourses() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
-  const [termFilter, setTermFilter] = useState<string>("");
   const [availableTerms, setAvailableTerms] = useState<string[]>([]);
 
   useEffect(() => {
@@ -82,20 +80,7 @@ export default function StudentCourses() {
   }, [user]);
 
   // Filter courses based on search term and academic term
-  const filteredCourses = courses.filter(
-    (course) => {
-      const matchesSearch = 
-        course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (course.faculty?.name && course.faculty.name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      const matchesTerm = termFilter ? 
-        course.section.academicTerm === termFilter : true;
-      
-      return matchesSearch && matchesTerm;
-    }
-  );
-
+ 
   if (loading) {
     return (
       <StudentLayout>
@@ -117,42 +102,9 @@ export default function StudentCourses() {
         </div>
 
         {/* Search and filters */}
-        <div className="mb-6 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4">
-          <div className="relative max-w-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search courses..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
+       
           
-          <div className="w-full sm:w-48">
-            <Select
-              value={termFilter}
-              onValueChange={setTermFilter}
-            >
-              <SelectTrigger className="w-full">
-                <div className="flex items-center">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="All Terms" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="_all">All Terms</SelectItem> {/* Changed from empty string to "_all" */}
-                {availableTerms.map((term) => (
-                  <SelectItem key={term} value={term || "undefined"}>
-                    {term || "Undefined Term"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
+
 
         {error && (
           <div className="mb-6 bg-red-50 p-4 rounded-md">
@@ -160,7 +112,7 @@ export default function StudentCourses() {
           </div>
         )}
 
-        {filteredCourses.length === 0 ? (
+        {courses.length === 0 ? (
           <div className="bg-white p-8 rounded-md shadow-sm text-center">
             <div className="mx-auto h-12 w-12 text-gray-400">
               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -168,15 +120,11 @@ export default function StudentCourses() {
               </svg>
             </div>
             <h3 className="mt-2 text-sm font-medium text-gray-900">No courses found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm || termFilter ? 
-                "No courses match your filters." : 
-                "You are not enrolled in any courses yet."}
-            </p>
+           
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCourses.map((course) => (
+            {courses.map((course) => (
               <CourseCard key={course.id} course={course} />
             ))}
           </div>

@@ -138,9 +138,7 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
         <Tabs defaultValue="overview" className="w-full">
           <TabsList className="mb-4">
             <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="materials">Materials</TabsTrigger>
-            <TabsTrigger value="assignments">Assignments</TabsTrigger>
-            <TabsTrigger value="attendance">Attendance</TabsTrigger>
+           
           </TabsList>
           
           <TabsContent value="overview">
@@ -160,8 +158,8 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
                       <dd className="mt-1 text-sm text-gray-900">{course.name}</dd>
                     </div>
                     <div>
-                      <dt className="text-sm font-medium text-gray-500">Credits</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{course.credits}</dd>
+                      <dt className="text-sm font-medium text-gray-500">Year</dt>
+                      <dd className="mt-1 text-sm text-gray-900">3d</dd>
                     </div>
                     <div>
                       <dt className="text-sm font-medium text-gray-500">Department</dt>
@@ -171,11 +169,8 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
                       <dt className="text-sm font-medium text-gray-500">Faculty</dt>
                       <dd className="mt-1 text-sm text-gray-900">{course.faculty?.name || "Not assigned"}</dd>
                     </div>
-                    <div>
-                      <dt className="text-sm font-medium text-gray-500">Section</dt>
-                      <dd className="mt-1 text-sm text-gray-900">{course.section.name}</dd>
-                    </div>
-                    <div className="sm:col-span-2">
+
+                    <div >
                       <dt className="text-sm font-medium text-gray-500">Description</dt>
                       <dd className="mt-1 text-sm text-gray-900">{course.description || "No description available"}</dd>
                     </div>
@@ -183,33 +178,7 @@ export default function CourseDetailPage({ params }: CourseDetailPageProps) {
                 </CardContent>
               </Card>
               
-              <Card>
-                <CardHeader>
-                  <CardTitle>Schedule</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {course.schedule?.length > 0 ? (
-                    <div className="space-y-3">
-                      {course.schedule.map((item: any, index: number) => (
-                        <div key={index} className="flex items-start">
-                          <Calendar className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
-                          <div>
-                            <p className="font-medium">{item.dayOfWeek}</p>
-                            <p className="text-sm text-gray-500">
-                              {item.startTime} - {item.endTime}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              Room: {item.room?.name || "TBA"}
-                            </p>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-gray-500">No schedule information available</p>
-                  )}
-                </CardContent>
-              </Card>
+              
             </div>
 
             {course.subjects && course.subjects.length > 0 && (

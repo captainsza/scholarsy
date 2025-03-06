@@ -52,8 +52,7 @@ export default function CourseCard({ course }: CourseProps) {
             <h3 className="font-medium text-lg text-gray-900">{course.name}</h3>
             <div className="flex items-center mt-1 text-sm text-gray-500">
               <span className="inline-block">{course.code}</span>
-              <span className="mx-2">•</span>
-              <span>{course.credits} Credits</span>
+             
             </div>
           </div>
           <Badge 
@@ -71,11 +70,11 @@ export default function CourseCard({ course }: CourseProps) {
           </div>
           <div className="flex items-center text-sm">
             <BookOpen className="h-4 w-4 text-blue-500 mr-2" />
-            <span>Section {course.section.name}</span>
+            <span>3d Year </span>
           </div>
           <div className="flex items-center text-sm">
-            <Users className="h-4 w-4 text-blue-500 mr-2" />
-            <span>{course.faculty?.name || 'Faculty not assigned'}</span>
+            
+            <span>5th Sem</span>
           </div>
         </div>
 
@@ -95,11 +94,7 @@ export default function CourseCard({ course }: CourseProps) {
         )}
       </CardContent>
       
-      <CardFooter className="bg-gray-50 px-6 py-3">
-        <div className="w-full text-right text-sm text-blue-600">
-          View Course Details →
-        </div>
-      </CardFooter>
+     
     </Card>
   );
 }

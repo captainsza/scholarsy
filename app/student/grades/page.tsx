@@ -142,7 +142,7 @@ export default function StudentGradesPage() {
           
           {semesters.length > 0 && (
             <div className="flex items-center space-x-3">
-              <span className="text-sm text-gray-500">Select Semester:</span>
+              <span className="text-sm text-gray-500">Select Sessional:</span>
               <Select
                 value={selectedSemester}
                 onValueChange={handleSemesterChange}
@@ -164,37 +164,9 @@ export default function StudentGradesPage() {
 
         {/* Grade Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Semester GPA</CardTitle>
-              <CardDescription>
-                Current semester performance
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">{gpa}</div>
-              <div className="text-sm text-gray-500 mt-1">
-                Based on {totalCredits} credit hours
-              </div>
-            </CardContent>
-          </Card>
           
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Completed Subjects</CardTitle>
-              <CardDescription>
-                For {selectedSemester}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="text-3xl font-bold text-blue-600">
-                {gradeData?.subjects?.length || 0}
-              </div>
-              <div className="text-sm text-gray-500 mt-1">
-                {totalCredits} total credit hours
-              </div>
-            </CardContent>
-          </Card>
+          
+          
           
           <Card>
             <CardHeader className="pb-2">
@@ -222,9 +194,7 @@ export default function StudentGradesPage() {
           {/* Tab Navigation */}
           <Tabs defaultValue="subjects">
             <TabsList className="mb-6">
-              <TabsTrigger value="subjects">Subject Grades</TabsTrigger>
-              <TabsTrigger value="assessments">Assessment Grades</TabsTrigger>
-              <TabsTrigger value="progress">Grade Progress</TabsTrigger>
+              <TabsTrigger value="subjects">Grades</TabsTrigger>
             </TabsList>
 
             {/* Subject Grades Tab */}

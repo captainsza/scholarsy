@@ -146,8 +146,7 @@ export default function SubjectGradeList({ subjects }: SubjectGradeListProps) {
             <TableRow>
               <TableHead>Code</TableHead>
               <TableHead>Subject</TableHead>
-              <TableHead className="w-[100px] text-center">Credits</TableHead>
-              <TableHead className="w-[100px] text-center">Sessional</TableHead>
+              <TableHead className="w-[100px] text-center">Obtained</TableHead>
               <TableHead className="w-[100px] text-center">Attendance</TableHead>
               <TableHead className="w-[100px] text-center">Total</TableHead>
               <TableHead className="w-[80px] text-center">Grade</TableHead>
@@ -163,7 +162,6 @@ export default function SubjectGradeList({ subjects }: SubjectGradeListProps) {
                   <TableRow key={subject.id}>
                     <TableCell className="font-medium">{subject.code}</TableCell>
                     <TableCell>{subject.name}</TableCell>
-                    <TableCell className="text-center">{subject.creditHours}</TableCell>
                     <TableCell className="text-center">
                       {subject.internalMarks?.sessionalMark || "-"}
                     </TableCell>
@@ -191,16 +189,7 @@ export default function SubjectGradeList({ subjects }: SubjectGradeListProps) {
       </div>
 
       {/* Visualization */}
-      <div className="mt-8">
-        <h3 className="text-lg font-medium mb-4">Grades Visualization</h3>
-        <Card>
-          <CardContent className="pt-6">
-            <div className="h-80 w-full">
-              <Bar options={chartOptions} data={chartData} />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      
     </div>
   );
 }

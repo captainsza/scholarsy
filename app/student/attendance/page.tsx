@@ -226,29 +226,12 @@ export default function StudentAttendancePage() {
             </CardContent>
           </Card>
 
-          <Card className="bg-yellow-50">
-            <CardContent className="pt-6">
-              <div className="flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Late</p>
-                  <p className="mt-1 text-3xl font-bold text-yellow-700">{overallStats.late}</p>
-                </div>
-                <div className="h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center">
-                  <Clock className="h-6 w-6 text-yellow-600" />
-                </div>
-              </div>
-              <div className="mt-3 text-sm text-yellow-600">
-                {overallStats.total > 0 && 
-                  `${Math.round((overallStats.late / overallStats.total) * 100)}% of classes`}
-              </div>
-            </CardContent>
-          </Card>
+         
         </div>
 
         <Tabs defaultValue="records" className="mb-6">
           <TabsList className="mb-4">
-            <TabsTrigger value="records">Attendance Records</TabsTrigger>
-            <TabsTrigger value="subjects">Subject-wise</TabsTrigger>
+            <TabsTrigger value="records">Subject-wise</TabsTrigger>
           </TabsList>
 
           <TabsContent value="records">
