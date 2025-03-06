@@ -39,10 +39,10 @@ export async function POST(req: NextRequest) {
         expires: tokenExpiry,
       },
     });
-
+console.log('resetToken',resetToken)
     // Send password reset email
     await sendPasswordResetEmail(email, resetToken);
-
+  
     return NextResponse.json({ message: 'If your email is registered, you will receive a password reset link.' });
   } catch (error: any) {
     console.error('Password reset request error:', error);

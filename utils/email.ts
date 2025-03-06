@@ -113,6 +113,8 @@ export const sendApprovalEmail = async (email: string, approved: boolean) => {
 
 // Helper function to send password reset email
 export const sendPasswordResetEmail = async (email: string, token: string) => {
+  console.log(`Starting password reset email process for: ${email}`);
+  
   // Get base URL with fallback
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 
                  (process.env.NODE_ENV === 'production' 
@@ -120,7 +122,9 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
                   : 'http://localhost:3000');
   
   const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+  console.log(`Password reset URL generated: ${resetUrl}`);
   
+  console.log('Attempting to send password reset email...');
   await sendEmail({
     to: email,
     subject: 'Reset your ScholarSync password',
@@ -138,4 +142,5 @@ export const sendPasswordResetEmail = async (email: string, token: string) => {
       </div>
     `,
   });
+  console.log(`Password reset email process completed for: ${email}`);
 };

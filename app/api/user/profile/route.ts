@@ -102,9 +102,23 @@ export async function PUT(req: NextRequest) {
 
       // Update student data if user is a student
       if (user.role === 'STUDENT' && data.student) {
+        // Process date fields before sending to Prisma
+        const studentData = { ...data.student };
+        
+        // Convert date string to Date object if present
+        if (studentData.dob && typeof studentData.dob === 'string') {
+          // Make sure the date string is in a valid format (YYYY-MM-DD)
+          try {
+            studentData.dob = new Date(studentData.dob);
+          } catch (error) {
+            console.error('Invalid date format:', error);
+            throw new Error('Invalid date format for date of birth');
+          }
+        }
+        
         await prisma.student.update({
           where: { userId },
-          data: data.student,
+          data: studentData,
         });
       }
 
