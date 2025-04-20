@@ -227,18 +227,18 @@ export default function UserTable({
                   </div>
                 </TableCell>
                 <TableCell>
-                  <Badge
+                    <Badge
                     variant={
                       user.role === "ADMIN"
-                        ? "destructive"
-                        : user.role === "FACULTY"
-                        ? "purple"
-                        : "default"
+                      ? "destructive"
+                      : user.role === "FACULTY"
+                      ? "info" // Changed from "purple" to "info"
+                      : "default"
                     }
                     className="uppercase text-xs"
-                  >
+                    >
                     {user.role}
-                  </Badge>
+                    </Badge>
                 </TableCell>
                 <TableCell>
                   {user.student?.department || user.faculty?.department || "-"}
