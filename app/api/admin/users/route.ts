@@ -1,63 +1,115 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-// Get all users
 export async function GET(req: NextRequest) {
   try {
-    const role = req.nextUrl.searchParams.get("role");
-    const pendingOnly = req.nextUrl.searchParams.get("pendingOnly") === "true";
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
     
-    let whereClause: any = {};
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
     
-    // Add role filter if specified
-    if (role && role !== "all") {
-      whereClause.role = role;
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
     }
     
-    // Add approval status filter if specified
-    if (pendingOnly) {
-      whereClause.isApproved = false;
+    // Get query parameters
+    const { searchParams } = req.nextUrl;
+    const roleFilter = searchParams.get('role');
+    const searchQuery = searchParams.get('search') || '';
+    const approvalFilter = searchParams.get('approval') || 'all';
+    const emailVerifiedFilter = searchParams.get('emailVerified') || 'verified';
+    const page = parseInt(searchParams.get('page') || '1');
+    const limit = parseInt(searchParams.get('limit') || '10');
+    const skip = (page - 1) * limit;
+    
+    // Build the where clause based on filters
+    const where: any = {};
+    
+    // Role filter
+    if (roleFilter && ['ADMIN', 'FACULTY', 'STUDENT'].includes(roleFilter)) {
+      where.role = roleFilter;
     }
     
+    // Search query
+    if (searchQuery) {
+      where.OR = [
+        { email: { contains: searchQuery, mode: 'insensitive' } },
+        { 
+          profile: { 
+            OR: [
+              { firstName: { contains: searchQuery, mode: 'insensitive' } },
+              { lastName: { contains: searchQuery, mode: 'insensitive' } }
+            ]
+          } 
+        }
+      ];
+    }
+    
+    // Approval status filter
+    if (approvalFilter === 'pending') {
+      where.isApproved = false;
+    } else if (approvalFilter === 'approved') {
+      where.isApproved = true;
+    }
+    
+    // Email verification filter
+    if (emailVerifiedFilter === 'verified') {
+      where.emailVerified = true;
+    } else if (emailVerifiedFilter === 'unverified') {
+      where.emailVerified = false;
+    }
+    
+    // Get users with pagination
     const users = await prisma.user.findMany({
-      where: whereClause,
+      where,
       include: {
         profile: true,
-        student: {
-          select: {
-            id: true,
-            enrollmentId: true,
-            department: true,
-          }
-        },
-        faculty: {
-          select: {
-            id: true,
-            department: true,
-          }
-        },
-        admin: {
-          select: {
-            id: true,
-          }
-        }
+        student: true,
+        faculty: true,
+        admin: true,
       },
       orderBy: {
-        createdAt: "desc"
+        createdAt: 'desc',
+      },
+      skip,
+      take: limit,
+    });
+    
+    // Remove sensitive information (password)
+    const safeUsers = users.map(user => {
+      const { password, ...safeUser } = user;
+      return safeUser;
+    });
+    
+    // Get total count for pagination
+    const totalUsers = await prisma.user.count({ where });
+    const totalPages = Math.ceil(totalUsers / limit);
+    
+    return NextResponse.json({
+      users: safeUsers,
+      pagination: {
+        totalUsers,
+        totalPages,
+        currentPage: page,
+        pageSize: limit,
       }
     });
-
-    // Remove password from the response
-    const safeUsers = users.map(({ password, ...rest }) => rest);
-
-    return NextResponse.json({ users: safeUsers });
-  } catch (error) {
-    console.error("Failed to fetch users:", error);
+  } catch (error: any) {
+    console.error('User fetch error:', error);
     return NextResponse.json(
-      { message: "Failed to fetch users" },
+      { message: 'Failed to fetch users' }, 
       { status: 500 }
     );
   } finally {

@@ -99,10 +99,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: GraduationCap, label: "Students", path: "/admin/students" },
     { icon: ClipboardList, label: "Faculty", path: "/admin/faculty" },
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
-    { icon: Building, label: "Departments", path: "/admin/departments" },
     { icon: Bell, label: "Notices", path: "/admin/notices" },
     { icon: Calendar, label: "Schedule", path: "/admin/schedule" },
-    { icon: BarChart3, label: "Reports", path: "/admin/reports" },
     { icon: Settings, label: "Settings", path: "/admin/settings" },
   ];
 

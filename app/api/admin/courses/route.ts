@@ -1,16 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-// Get all courses
+// GET endpoint to fetch courses
 export async function GET(req: NextRequest) {
   try {
     const courses = await prisma.course.findMany({
       include: {
         _count: {
           select: { 
-            sections: true,
             registrations: true,
           }
         },
@@ -30,7 +31,6 @@ export async function GET(req: NextRequest) {
         }
       },
       orderBy: {
-        // Changed from createdAt to name since Course model doesn't have createdAt field
         name: 'asc',
       }
     });
@@ -47,49 +47,82 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Create a new course
+// POST endpoint to create a new course with subjects
 export async function POST(req: NextRequest) {
   try {
-    const { code, name, credits, department } = await req.json();
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
 
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
+    
+    // Get course data from request body
+    const { name, branch, year, semester, credits, description, facultyId, subjects } = await req.json();
+    
     // Validate required fields
-    if (!code || !name || !credits || !department) {
+    if (!name || !branch || !year || !semester) {
       return NextResponse.json(
-        { message: "Missing required fields" },
+        { message: 'Course name, branch, year and semester are required' }, 
         { status: 400 }
       );
     }
-
-    // Check if course code already exists
-    const existingCourse = await prisma.course.findUnique({
-      where: { code }
-    });
-
-    if (existingCourse) {
-      return NextResponse.json(
-        { message: "Course with this code already exists" },
-        { status: 400 }
-      );
-    }
-
-    // Create the course - REMOVE the description field as it doesn't exist in the schema
-    const course = await prisma.course.create({
-      data: {
-        code,
-        name,
-        credits,
-        department,
+    
+    // Create course with subjects in a transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // Create the course first
+      const course = await tx.course.create({
+        data: {
+          name,
+          branch,
+          year,
+          semester,
+          credits: credits || null,
+          description,
+          facultyId: facultyId || null,
+        },
+      });
+      
+      // If subjects are provided, create them
+      if (subjects && Array.isArray(subjects) && subjects.length > 0) {
+        for (const subject of subjects) {
+          // Validate required subject fields
+          if (!subject.name || !subject.code) {
+            throw new Error('Subject name and code are required');
+          }
+          
+          await tx.subject.create({
+            data: {
+              name: subject.name,
+              code: subject.code,
+              description: subject.description || null,
+              creditHours: subject.creditHours || 3,
+              courseId: course.id, // Direct relationship to course
+              facultyId: subject.facultyId || null,
+            },
+          });
+        }
       }
+      
+      // Return the created course
+      return course;
     });
-
+    
+    return NextResponse.json(result, { status: 201 });
+  } catch (error: any) {
+    console.error('Course creation error:', error);
     return NextResponse.json(
-      { message: "Course created successfully", course },
-      { status: 201 }
-    );
-  } catch (error) {
-    console.error("Failed to create course:", error);
-    return NextResponse.json(
-      { message: "Failed to create course" },
+      { message: 'Failed to create course', error: error.message }, 
       { status: 500 }
     );
   } finally {

@@ -5,7 +5,6 @@ import { useAuth } from "@/context/AuthContext";
 import AdminLayout from "@/components/layouts/AdminLayout";
 import StatCard from "@/components/dashboard/StatCard";
 import ApprovalTable from "@/components/admin/ApprovalTable";
-import DepartmentChart from "@/components/dashboard/DepartmentChart";
 import RecentActivityFeed from "@/components/dashboard/RecentActivityFeed";
 
 // Summary statistics types
@@ -113,21 +112,7 @@ export default function AdminDashboard() {
             <ApprovalTable />
           </div>
 
-          {/* Department Distribution */}
-          <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-5 border-b border-gray-200">
-              <h2 className="text-lg font-medium text-gray-900">Department Distribution</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                User distribution across departments
-              </p>
-            </div>
-            <div className="p-6">
-              <DepartmentChart 
-                studentData={stats?.studentsByDepartment || {}}
-                facultyData={stats?.facultyByDepartment || {}}
-              />
-            </div>
-          </div>
+       
         </div>
 
         {/* Recent Activity */}

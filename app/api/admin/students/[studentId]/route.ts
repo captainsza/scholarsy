@@ -1,15 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-// GET: Get a specific student by ID
 export async function GET(
   req: NextRequest,
   { params }: { params: { studentId: string } }
 ) {
   try {
-    const { studentId } = params;
+    const studentId = params.studentId;
+
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN' && decoded.role !== 'FACULTY') {
+      return NextResponse.json({ message: 'Access denied' }, { status: 403 });
+    }
 
     // Fetch the student with related data
     const student = await prisma.student.findUnique({
@@ -20,23 +38,18 @@ export async function GET(
             profile: true,
           },
         },
-        sectionEnrollments: {
+        courseEnrollments: {
           include: {
-            section: {
-              include: {
-                course: true,
-              },
-            },
+            course: true,
           },
-          take: 5, // Limit to most recent 5 enrollments for preview
+          take: 5,
           orderBy: {
             enrolledAt: 'desc',
           },
         },
-        // Include other related data that might be useful
         _count: {
           select: {
-            sectionEnrollments: true,
+            courseEnrollments: true,
             gradeRecords: true,
             attendance: true,
           },
@@ -45,31 +58,57 @@ export async function GET(
     });
 
     if (!student) {
-      return NextResponse.json(
-        { message: "Student not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: 'Student not found' }, { status: 404 });
     }
 
-    // Calculate additional statistics if needed
-    const activeEnrollmentsCount = await prisma.sectionEnrollment.count({
-      where: {
-        studentId,
-        status: "ACTIVE",
-      },
+    // Get total enrollments count
+    const totalEnrollments = await prisma.courseEnrollment.count({
+      where: { studentId: student.id },
     });
 
-    // Return the student data
-    return NextResponse.json({
-      student,
+    // Get recent activities
+    const recentActivities = await Promise.all([
+      // Recent attendances
+      prisma.attendance.findMany({
+        where: { studentId: student.id },
+        orderBy: { date: 'desc' },
+        take: 3,
+        include: {
+          course: true,
+        },
+      }),
+      
+      // Recent grade records
+      prisma.gradeRecord.findMany({
+        where: { studentId: student.id },
+        orderBy: { updatedAt: 'desc' },
+        take: 3,
+        include: {
+          course: true,
+        },
+      }),
+    ]);
+
+    // Transform the data for API response
+    const transformedData = {
+      ...student,
       stats: {
-        activeEnrollments: activeEnrollmentsCount,
+        totalEnrollments,
+        totalCourses: student._count.courseEnrollments,
+        totalGradeRecords: student._count.gradeRecords,
+        totalAttendance: student._count.attendance,
       },
-    });
-  } catch (error) {
-    console.error("Failed to fetch student:", error);
+      recentActivities: {
+        attendance: recentActivities[0],
+        grades: recentActivities[1],
+      },
+    };
+
+    return NextResponse.json({ student: transformedData });
+  } catch (error: any) {
+    console.error('Student fetch error:', error);
     return NextResponse.json(
-      { message: "Failed to fetch student details" },
+      { message: 'Failed to fetch student', error: error.message },
       { status: 500 }
     );
   } finally {
@@ -77,100 +116,66 @@ export async function GET(
   }
 }
 
-// PUT: Update student details
 export async function PUT(
   req: NextRequest,
   { params }: { params: { studentId: string } }
 ) {
   try {
-    const { studentId } = params;
-    const updateData = await req.json();
-
-    // Check if the student exists
-    const existingStudent = await prisma.student.findUnique({
-      where: { id: studentId },
-    });
-
-    if (!existingStudent) {
-      return NextResponse.json(
-        { message: "Student not found" },
-        { status: 404 }
-      );
+    const studentId = params.studentId;
+    const data = await req.json();
+    
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Extract data for different models
-    const {
-      // User profile data
-      firstName, lastName, email, phone, profileImage,
-      // Student-specific data
-      department, enrollmentId, gender, dob, bloodGroup,
-      fatherName, motherName, admissionSession, admissionSemester,
-      academicStatus, instituteCode, instituteName, courseName,
-      branchName, currentSemester, address, city, state, country, pincode,
-      // Any other data...
-      ...restData
-    } = updateData;
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
 
-    // Start a transaction to update multiple related records
-    const updatedStudent = await prisma.$transaction(async (tx) => {
-      // Update student record
-      const student = await tx.student.update({
-        where: { id: studentId },
-        data: {
-          department: department,
-          enrollmentId: enrollmentId,
-          gender: gender,
-          dob: dob ? new Date(dob) : undefined,
-          bloodGroup: bloodGroup,
-          fatherName: fatherName,
-          motherName: motherName,
-          admissionSession: admissionSession,
-          admissionSemester: admissionSemester,
-          academicStatus: academicStatus,
-          instituteCode: instituteCode,
-          instituteName: instituteName,
-          courseName: courseName,
-          branchName: branchName,
-          currentSemester: currentSemester,
-          address: address,
-          city: city,
-          state: state,
-          country: country,
-          pincode: pincode,
-        },
-        include: {
-          user: true,
-        },
-      });
+    // Extract profile data and student data
+    const { 
+      firstName, lastName, phone, profileImage,
+      ...studentData 
+    } = data;
 
-      // Update profile if profile data is provided
-      if (firstName || lastName || phone || profileImage) {
-        await tx.profile.update({
-          where: { userId: student.userId },
-          data: {
-            firstName: firstName,
-            lastName: lastName,
-            phone: phone,
-            profileImage: profileImage,
+    // Update student record
+    const updatedStudent = await prisma.student.update({
+      where: { id: studentId },
+      data: studentData,
+      include: {
+        user: {
+          include: {
+            profile: true,
           },
-        });
-      }
-
-      // Update email if provided
-      if (email) {
-        await tx.user.update({
-          where: { id: student.userId },
-          data: {
-            email: email,
-          },
-        });
-      }
-
-      return student;
+        },
+      },
     });
 
-    // Fetch the updated student with full relations for response
-    const fullUpdatedStudent = await prisma.student.findUnique({
+    // If profile data was provided, update the profile
+    if (firstName || lastName || phone || profileImage) {
+      const profileData: any = {};
+      if (firstName !== undefined) profileData.firstName = firstName;
+      if (lastName !== undefined) profileData.lastName = lastName;
+      if (phone !== undefined) profileData.phone = phone;
+      if (profileImage !== undefined) profileData.profileImage = profileImage;
+
+      await prisma.profile.update({
+        where: { userId: updatedStudent.userId },
+        data: profileData,
+      });
+    }
+
+    // Fetch the updated student with profile
+    const student = await prisma.student.findUnique({
       where: { id: studentId },
       include: {
         user: {
@@ -181,14 +186,11 @@ export async function PUT(
       },
     });
 
-    return NextResponse.json({
-      message: "Student updated successfully",
-      student: fullUpdatedStudent,
-    });
-  } catch (error) {
-    console.error("Failed to update student:", error);
+    return NextResponse.json({ student });
+  } catch (error: any) {
+    console.error('Student update error:', error);
     return NextResponse.json(
-      { message: "Failed to update student details" },
+      { message: 'Failed to update student', error: error.message },
       { status: 500 }
     );
   } finally {
@@ -196,84 +198,49 @@ export async function PUT(
   }
 }
 
-// DELETE: Delete a student
 export async function DELETE(
   req: NextRequest,
   { params }: { params: { studentId: string } }
 ) {
   try {
-    const { studentId } = params;
+    const studentId = params.studentId;
+    
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
 
-    // Check if the student exists
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
+
+    // Get the student to find the user ID
     const student = await prisma.student.findUnique({
       where: { id: studentId },
-      include: {
-        user: true,
-      },
     });
 
     if (!student) {
-      return NextResponse.json(
-        { message: "Student not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ message: 'Student not found' }, { status: 404 });
     }
 
-    // To properly delete a student, we need to delete in a transaction
-    // to handle all related records and foreign key constraints
-    await prisma.$transaction(async (tx) => {
-      // First delete all related records that reference the student
-      await tx.sectionEnrollment.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.subjectAttendance.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.assessmentMark.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.attendance.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.gradeRecord.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.submission.deleteMany({
-        where: { studentId },
-      });
-      
-      await tx.registration.deleteMany({
-        where: { studentId },
-      });
-
-      // Delete the student record
-      await tx.student.delete({
-        where: { id: studentId },
-      });
-
-      // Delete the profile
-      await tx.profile.delete({
-        where: { userId: student.userId },
-      });
-
-      // Finally delete the user
-      await tx.user.delete({
-        where: { id: student.userId },
-      });
+    // Delete the student
+    await prisma.student.delete({
+      where: { id: studentId },
     });
 
-    return NextResponse.json({
-      message: "Student deleted successfully",
-    });
-  } catch (error) {
-    console.error("Failed to delete student:", error);
+    return NextResponse.json({ message: 'Student deleted successfully' });
+  } catch (error: any) {
+    console.error('Student deletion error:', error);
     return NextResponse.json(
-      { message: "Failed to delete student" },
+      { message: 'Failed to delete student', error: error.message },
       { status: 500 }
     );
   } finally {

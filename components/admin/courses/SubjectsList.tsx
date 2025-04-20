@@ -1,125 +1,151 @@
-import { useRouter } from "next/navigation";
-import { 
-  Table, 
-  TableHeader, 
-  TableRow, 
-  TableHead, 
-  TableBody, 
-  TableCell 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/button";
+"use client";
 
-// Define proper types for the props
-interface Faculty {
-  user: {
-    profile: {
-      firstName: string;
-      lastName: string;
-    }
-  }
-}
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { MoreHorizontal, Plus, Search } from "lucide-react";
 
 interface Subject {
   id: string;
-  code: string;
   name: string;
+  code: string;
   creditHours: number;
-  faculty?: Faculty;
-  _count?: {
-    assessments: number;
-  }
+  faculty?: {
+    user: {
+      profile: {
+        firstName: string;
+        lastName: string;
+      };
+    };
+  };
 }
 
 interface SubjectsListProps {
-  subjects: Subject[];
-  sectionId: string;
   courseId: string;
+  subjects: Subject[];
 }
 
-export default function SubjectsList({ subjects, sectionId, courseId }: SubjectsListProps) {
+export default function SubjectsList({ courseId, subjects }: SubjectsListProps) {
   const router = useRouter();
-  
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Filter subjects based on search query
+  const filteredSubjects = subjects.filter(
+    (subject) =>
+      subject.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      subject.code.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
   return (
-    <div>
-      <div className="flex justify-end mb-4">
-        <Button 
-          onClick={() => router.push(`/admin/courses/${courseId}/sections/${sectionId}/subjects/create`)}
-        >
-          Add New Subject
+    <div className="p-6">
+      <div className="flex justify-between items-center mb-6">
+        <div className="relative w-64">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-gray-400" />
+          <Input
+            placeholder="Search subjects..."
+            className="pl-8"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </div>
+        <Button onClick={() => router.push(`/admin/courses/${courseId}/subjects/create`)}>
+          <Plus className="h-4 w-4 mr-2" />
+          Add Subject
         </Button>
       </div>
-      
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
+
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Code</TableHead>
+              <TableHead>Subject Name</TableHead>
+              <TableHead>Credit Hours</TableHead>
+              <TableHead>Faculty</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredSubjects.length === 0 ? (
               <TableRow>
-                <TableHead>Code</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Credit Hours</TableHead>
-                <TableHead>Faculty</TableHead>
-                <TableHead>Assessments</TableHead>
-                <TableHead>Actions</TableHead>
+                <TableCell colSpan={5} className="text-center py-6 text-gray-500">
+                  {searchQuery ? (
+                    <div>
+                      <p>No subjects matching "{searchQuery}"</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <p>No subjects have been added to this course yet</p>
+                      <Button 
+                        variant="link" 
+                        onClick={() => router.push(`/admin/courses/${courseId}/subjects/create`)}
+                      >
+                        Add your first subject
+                      </Button>
+                    </div>
+                  )}
+                </TableCell>
               </TableRow>
-            </TableHeader>
-            <TableBody>
-              {subjects.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-gray-500">
-                    No subjects added to this section yet
+            ) : (
+              filteredSubjects.map((subject) => (
+                <TableRow key={subject.id}>
+                  <TableCell className="font-medium">{subject.code}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="link"
+                      className="p-0 h-auto text-left justify-start"
+                      onClick={() => router.push(`/admin/subjects/${subject.id}`)}
+                    >
+                      {subject.name}
+                    </Button>
+                  </TableCell>
+                  <TableCell>{subject.creditHours || 'N/A'}</TableCell>
+                  <TableCell>
+                    {subject.faculty
+                      ? `${subject.faculty.user.profile.firstName} ${subject.faculty.user.profile.lastName}`
+                      : "Not assigned"}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => router.push(`/admin/subjects/${subject.id}`)}>
+                          View Details
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/admin/subjects/${subject.id}/edit`)}>
+                          Edit Subject
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => router.push(`/admin/subjects/${subject.id}/assign-faculty`)}>
+                          Assign Faculty
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                   </TableCell>
                 </TableRow>
-              ) : (
-                subjects.map((subject) => (
-                  <TableRow key={subject.id}>
-                    <TableCell className="font-medium">{subject.code}</TableCell>
-                    <TableCell>{subject.name}</TableCell>
-                    <TableCell>{subject.creditHours}</TableCell>
-                    <TableCell>
-                      {subject.faculty ? (
-                        <div className="flex items-center space-x-1">
-                          <div className="h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 text-xs font-medium">
-                            {subject.faculty.user.profile.firstName[0]}
-                            {subject.faculty.user.profile.lastName[0]}
-                          </div>
-                          <span className="text-sm">
-                            {subject.faculty.user.profile.firstName} {subject.faculty.user.profile.lastName}
-                          </span>
-                        </div>
-                      ) : (
-                        <Badge variant="outline">Not Assigned</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={(subject._count?.assessments ?? 0) > 0 ? "default" : "outline"}>
-                        {subject._count?.assessments || 0}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex space-x-2">
-                        <Button 
-                          size="sm" 
-                          variant="ghost"
-                          onClick={() => router.push(`/admin/subjects/${subject.id}`)}
-                        >
-                          View
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => router.push(`/admin/subjects/${subject.id}/edit`)}
-                        >
-                          Edit
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              ))
+            )}
+          </TableBody>
+        </Table>
       </div>
     </div>
   );
