@@ -46,7 +46,7 @@ export default function AdminStudentsPage() {
         setStudents(data.students);
         
         // Extract unique departments
-        const uniqueDepartments = [...new Set(data.students.map((student: any) => student.department))];
+        const uniqueDepartments = [...new Set(data.students.map((student: any) => student.department))] as string[];
         setDepartments(uniqueDepartments);
       } catch (error) {
         console.error('Error fetching students:', error);

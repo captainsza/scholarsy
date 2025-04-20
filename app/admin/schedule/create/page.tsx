@@ -49,12 +49,17 @@ const scheduleFormSchema = z.object({
   }),
   endTime: z.string({
     required_error: "Please select an end time",
-  }).refine((endTime, ctx) => {
+  }).superRefine((endTime, ctx) => {
+    //@ts-ignore
     const { startTime } = ctx.parent;
     if (!startTime || !endTime) return true;
-    return endTime > startTime;
-  }, {
-    message: "End time must be after start time",
+    if (endTime <= startTime) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "End time must be after start time",
+      });
+    }
+    return;
   }),
   roomId: z.string().optional(),
 });

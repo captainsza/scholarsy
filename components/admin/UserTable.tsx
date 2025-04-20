@@ -13,6 +13,7 @@ import {
   Trash2,
   UserCog,
   Shield,
+  Plus,
 } from "lucide-react";
 import {
   Table,
