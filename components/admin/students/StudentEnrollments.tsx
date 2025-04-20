@@ -315,7 +315,7 @@ export default function StudentEnrollments({ enrollments = [], studentId }: Stud
               onClick={handleStatusChange}
               disabled={loading}
             >
-              {loading ? <LoadingSpinner small /> : 'Confirm'}
+              {loading ? <LoadingSpinner size="small" /> : 'Confirm'}
             </Button>
           </DialogFooter>
         </DialogContent>

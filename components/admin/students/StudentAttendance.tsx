@@ -112,8 +112,8 @@ export default function StudentAttendance({ studentId }: StudentAttendanceProps)
         setAttendanceRecords(data.attendanceRecords || []);
         setSummary(data.summary || null);
         
-        // Extract unique courses
-        const uniqueCourses = [...new Set(data.attendanceRecords.map((record: AttendanceRecord) => record.courseCode))];
+        // Extract unique courses with proper type assertion
+        const uniqueCourses = [...new Set(data.attendanceRecords.map((record: AttendanceRecord) => record.courseCode))] as string[];
         setCourses(
           uniqueCourses.map((code: string) => {
             const record = data.attendanceRecords.find((r: AttendanceRecord) => r.courseCode === code);

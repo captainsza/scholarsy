@@ -138,10 +138,11 @@ export default function StudentGrades({ studentId }: StudentGradesProps) {
         const data = await response.json();
         setGrades(data.grades || []);
         
-        // Extract unique semesters for filtering
+        // Extract unique semesters for filtering with proper type assertion
         const uniqueSemesters = [...new Set(data.grades.map((grade: CourseGrade) => 
           `${grade.academicYear} - ${grade.semester}`)
-        )];
+        )] as string[];
+        
         setSemesters(uniqueSemesters);
         
         // Calculate CGPA

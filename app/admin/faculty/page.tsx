@@ -26,7 +26,7 @@ import { toast } from "@/components/ui/toastall";
 
 export default function AdminFacultyPage() {
   const router = useRouter();
-  const [faculty, setFaculty] = useState([]);
+  const [faculty, setFaculty] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [departmentFilter, setDepartmentFilter] = useState("all");
@@ -45,8 +45,8 @@ export default function AdminFacultyPage() {
         const data = await response.json();
         setFaculty(data.faculty);
 
-        // Extract unique departments
-        const uniqueDepartments = [...new Set(data.faculty.map((member: any) => member.department))];
+        // Extract unique departments and fix type issue
+        const uniqueDepartments = [...new Set(data.faculty.map((member: any) => member.department))] as string[];
         setDepartments(uniqueDepartments);
       } catch (error) {
         console.error('Error fetching faculty:', error);
