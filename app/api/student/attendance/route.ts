@@ -1,128 +1,111 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
+import { format } from 'date-fns';
 
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   try {
-    // Get studentId from query parameter
-    const studentId = req.nextUrl.searchParams.get('studentId');
+    const searchParams = req.nextUrl.searchParams;
+    const studentId = searchParams.get('studentId');
+    const courseId = searchParams.get('courseId');
     
     if (!studentId) {
-      return NextResponse.json({ message: "Student ID is required" }, { status: 400 });
-    }
-
-    // Verify the student exists
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-    });
-
-    if (!student) {
-      return NextResponse.json({ message: "Student not found" }, { status: 404 });
+      return NextResponse.json({ message: 'Student ID is required' }, { status: 400 });
     }
 
     // Get all enrollments for the student
-    const enrollments = await prisma.sectionEnrollment.findMany({
-      where: { 
+    const enrollments = await prisma.courseEnrollment.findMany({
+      where: {
         studentId,
-        status: 'ACTIVE' 
+        status: 'ACTIVE',
+        ...(courseId ? { courseId } : {})
       },
       include: {
-        section: {
-          include: {
-            subjects: true,
-            course: true
-          }
-        }
+        course: true
       }
     });
 
-    // Get all subjects the student is enrolled in
-    const subjectIds = enrollments.flatMap(enrollment => 
-      enrollment.section.subjects.map(subject => subject.id)
-    );
+    // Extract courseIds from enrollments
+    const courseIds = enrollments.map(enrollment => enrollment.courseId);
 
-    // Get all attendance records for these subjects
-    const attendanceRecords = await prisma.subjectAttendance.findMany({
+    // Get attendance records for these courses
+    const attendanceRecords = await prisma.attendance.findMany({
       where: {
         studentId,
-        subjectId: { in: subjectIds }
-      },
-      include: {
-        subject: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-            section: {
-              select: {
-                id: true,
-                name: true,
-                course: {
-                  select: {
-                    id: true, 
-                    name: true,
-                    code: true
-                  }
-                }
-              }
-            }
-          }
+        courseId: {
+          in: courseIds
         }
       },
       orderBy: {
         date: 'desc'
+      },
+      include: {
+        course: true
       }
     });
 
-    // Group attendance records by subject and calculate stats
-    const subjectAttendance = subjectIds.map(subjectId => {
-      const subjectRecords = attendanceRecords.filter(record => record.subject.id === subjectId);
-      if (subjectRecords.length === 0) return null;
+    // Calculate summary statistics per course
+    const courseStats = await Promise.all(courseIds.map(async (courseId) => {
+      const records = attendanceRecords.filter(record => record.courseId === courseId);
+      const course = enrollments.find(e => e.courseId === courseId)?.course;
       
-      const subject = subjectRecords[0].subject;
+      if (!course) return null;
       
-      // Calculate stats
-      const presentCount = subjectRecords.filter(record => record.status === 'PRESENT').length;
-      const absentCount = subjectRecords.filter(record => record.status === 'ABSENT').length;
-      const lateCount = subjectRecords.filter(record => record.status === 'LATE').length;
+      const total = records.length;
+      const present = records.filter(record => record.status === 'PRESENT').length;
+      const absent = records.filter(record => record.status === 'ABSENT').length;
+      const late = records.filter(record => record.status === 'LATE').length;
       
-      const totalClasses = subjectRecords.length;
-      const percentage = Math.round((presentCount / totalClasses) * 100);
-      
-      const lastUpdated = subjectRecords
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0]?.date;
+      const percentage = total > 0 ? Math.round((present / total) * 100) : 0;
       
       return {
-        id: subject.id,
-        name: subject.name,
-        code: subject.code,
-        section: subject.section,
-        attendanceRecords: subjectRecords.map(record => ({
-          id: record.id,
-          date: record.date,
-          status: record.status,
-          remarks: record.remarks
-        })),
-        stats: {
-          presentCount,
-          absentCount,
-          lateCount,
-          totalClasses,
-          percentage
-        },
-        lastUpdated
+        courseId,
+        courseName: course.name,
+        courseCode: course.branch || "",
+        total,
+        present,
+        absent,
+        late,
+        percentage
       };
-    }).filter(Boolean); // Remove null entries
+    }));
+
+    // Filter out null values if any
+    const validCourseStats = courseStats.filter(Boolean);
+
+    // Calculate overall attendance statistics
+    const overallStats = {
+      total: attendanceRecords.length,
+      present: attendanceRecords.filter(record => record.status === 'PRESENT').length,
+      absent: attendanceRecords.filter(record => record.status === 'ABSENT').length,
+      late: attendanceRecords.filter(record => record.status === 'LATE').length,
+    };
+    
+    overallStats.percentage = overallStats.total > 0 
+      ? Math.round((overallStats.present / overallStats.total) * 100) 
+      : 0;
+
+    // Format attendance records for display
+    const formattedRecords = attendanceRecords.map(record => ({
+      id: record.id,
+      date: format(new Date(record.date), 'yyyy-MM-dd'),
+      formattedDate: format(new Date(record.date), 'MMM dd, yyyy'),
+      status: record.status,
+      courseId: record.courseId,
+      courseName: record.course?.name || 'Unknown Course',
+      courseCode: record.course?.branch || ''
+    }));
 
     return NextResponse.json({
-      studentId,
-      subjects: subjectAttendance
+      records: formattedRecords,
+      summary: overallStats,
+      courseStats: validCourseStats
     });
   } catch (error) {
-    console.error("Failed to fetch student attendance:", error);
+    console.error('Failed to fetch student attendance:', error);
     return NextResponse.json(
-      { message: "Failed to fetch attendance data" },
+      { message: 'Failed to fetch student attendance' }, 
       { status: 500 }
     );
   } finally {

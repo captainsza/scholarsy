@@ -1,38 +1,38 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// Get all courses for a student - simplified without auth checks
 export async function GET(req: NextRequest) {
   try {
-    // Get student ID from query params instead of auth checks
-    const studentId = req.nextUrl.searchParams.get('studentId');
+    const searchParams = req.nextUrl.searchParams;
+    const studentId = searchParams.get('studentId');
     
     if (!studentId) {
-      return NextResponse.json({ message: "Student ID is required" }, { status: 400 });
+      return NextResponse.json({ message: 'Student ID is required' }, { status: 400 });
     }
 
-    // Get all sections the student is enrolled in
-    const enrollments = await prisma.sectionEnrollment.findMany({
-      where: { 
+    // Get all courses the student is enrolled in
+    const enrollments = await prisma.courseEnrollment.findMany({
+      where: {
         studentId,
-        status: "ACTIVE" 
+        status: "ACTIVE"
       },
       include: {
-        section: {
+        course: {
           include: {
-            course: {
+            faculty: {
               include: {
-                faculty: {
+                user: {
                   include: {
-                    user: {
-                      include: {
-                        profile: true
-                      }
-                    }
+                    profile: true
                   }
                 }
+              }
+            },
+            schedules: {
+              include: {
+                room: true
               }
             }
           }
@@ -40,41 +40,56 @@ export async function GET(req: NextRequest) {
       }
     });
 
-    // Format the response
+    // Transform the data for the response
     const courses = enrollments.map(enrollment => {
-      const { section } = enrollment;
-      const { course } = section;
+      const course = enrollment.course;
+      
+      // Calculate class hours per week
+      const totalMinutesPerWeek = course.schedules.reduce((total, schedule) => {
+        const startParts = schedule.startTime.split(':').map(Number);
+        const endParts = schedule.endTime.split(':').map(Number);
+        
+        const startMinutes = startParts[0] * 60 + startParts[1];
+        const endMinutes = endParts[0] * 60 + endParts[1];
+        
+        return total + (endMinutes - startMinutes);
+      }, 0);
+      
+      const hoursPerWeek = Math.round(totalMinutesPerWeek / 60 * 10) / 10;
+      
+      // Get the teacher name
+      const teacherName = course.faculty?.user?.profile 
+        ? `${course.faculty.user.profile.firstName} ${course.faculty.user.profile.lastName}`
+        : "Unassigned";
       
       return {
         id: course.id,
-        code: course.code,
         name: course.name,
-        credits: course.credits,
-        department: course.department,
-        description: course.description,
-        faculty: course.faculty ? {
-          name: `${course.faculty.user.profile.firstName} ${course.faculty.user.profile.lastName}`,
-          department: course.faculty.department
-        } : null,
-        section: {
-          id: section.id,
-          name: section.name,
-          academicTerm: section.academicTerm
-        },
-        enrollment: {
-          id: enrollment.id,
-          status: enrollment.status,
-          enrolledAt: enrollment.enrolledAt
-        },
-        progress: Math.floor(Math.random() * 100)
+        branch: course.branch || "", // Use branch instead of code
+        description: course.description || "",
+        semester: course.semester,
+        academicTerm: `${course.year} - ${course.semester}`, // Create an academicTerm field
+        enrollmentId: enrollment.id,
+        enrollmentStatus: enrollment.status,
+        enrollmentDate: enrollment.enrolledAt,
+        teacher: teacherName,
+        hoursPerWeek: hoursPerWeek,
+        credits: course.credits || 0,
+        schedule: course.schedules.map(schedule => ({
+          id: schedule.id,
+          day: schedule.dayOfWeek,
+          startTime: schedule.startTime,
+          endTime: schedule.endTime,
+          room: schedule.room?.name || "TBD"
+        }))
       };
     });
 
     return NextResponse.json({ courses });
   } catch (error) {
-    console.error("Failed to fetch student courses:", error);
+    console.error('Failed to fetch student courses:', error);
     return NextResponse.json(
-      { message: "Failed to fetch courses" },
+      { message: 'Failed to fetch student courses' }, 
       { status: 500 }
     );
   } finally {
