@@ -11,16 +11,12 @@ export async function GET(req: NextRequest, { params }: { params: { assessmentId
     const assessment = await prisma.assessment.findUnique({
       where: { id: assessmentId },
       include: {
-        marks: true,
-        subject: {
-          include: {
-            section: {
-              include: {
-                course: true
-              }
-            }
-          }
+      marks: true,
+      subject: {
+        include: {
+        course: true
         }
+      }
       }
     });
 

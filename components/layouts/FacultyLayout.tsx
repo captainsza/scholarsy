@@ -95,14 +95,13 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
 
   const navItems: NavItem[] = [
     { icon: Home, label: "Dashboard", path: "/faculty/dashboard" },
-    { icon: BookOpen, label: "My Courses", path: "/faculty/courses" },
+    { icon: BookOpen, label: "My Subjects", path: "/faculty/courses" },
     { icon: Users, label: "Students", path: "/faculty/students" },
     { icon: ClipboardCheck, label: "Attendance", path: "/faculty/attendance", badge: { value: "New", variant: "indigo" } },
     { icon: FileText, label: "Assessments", path: "/faculty/assessments" },
     { icon: PenTool, label: "Grades", path: "/faculty/grades" },
     { icon: Calendar, label: "Schedule", path: "/faculty/schedule" },
     { icon: Bell, label: "Notices", path: "/faculty/notices" },
-    { icon: GraduationCap, label: "Resources", path: "/faculty/resources" },
     { icon: Settings, label: "Settings", path: "/faculty/settings" },
   ];
 

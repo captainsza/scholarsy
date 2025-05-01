@@ -20,37 +20,27 @@ export async function GET(req: NextRequest) {
       process.env.JWT_SECRET || 'your-secret-key'
     ) as { id: string, role: string };
     
-    if (decoded.role !== 'STUDENT') {
-      return NextResponse.json({ message: 'Student access required' }, { status: 403 });
+    if (decoded.role !== 'FACULTY') {
+      return NextResponse.json({ message: 'Faculty access required' }, { status: 403 });
     }
 
-    // Get the student details
-    const student = await prisma.student.findFirst({
+    // Get the faculty details
+    const faculty = await prisma.faculty.findFirst({
       where: { userId: decoded.id },
-      include: { 
-        user: { include: { profile: true } },
-        courseEnrollments: { 
-          where: { status: 'ACTIVE' },
-          include: { course: true } 
-        }
-      }
+      include: { user: { include: { profile: true } } }
     });
     
-    if (!student) {
-      return NextResponse.json({ message: 'Student record not found' }, { status: 404 });
+    if (!faculty) {
+      return NextResponse.json({ message: 'Faculty record not found' }, { status: 404 });
     }
 
-    // Get the courses the student is enrolled in
-    const courseIds = student.courseEnrollments.map(e => e.courseId);
-    
     // Current date for filtering expired notices
     const currentDate = new Date();
     
     // Fetch notices targeted at:
     // 1. ALL users
-    // 2. STUDENT role specifically
-    // 3. Student's department
-    // 4. Student's courses
+    // 2. FACULTY role specifically
+    // 3. Faculty's department
     const notices = await prisma.notice.findMany({
       where: {
         isPublished: true,
@@ -68,15 +58,11 @@ export async function GET(req: NextRequest) {
               { targetType: 'ALL' },
               { 
                 targetType: 'ROLE',
-                targetUserRoles: { has: 'STUDENT' }
+                targetUserRoles: { has: 'FACULTY' }
               },
               { 
                 targetType: 'DEPARTMENT',
-                targetDepartments: { has: student.department }
-              },
-              { 
-                targetType: 'COURSE',
-                targetCourseIds: { hasSome: courseIds }
+                targetDepartments: { has: faculty.department }
               }
             ]
           }
@@ -102,7 +88,7 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ notices: processedNotices });
   } catch (error: any) {
-    console.error('Error fetching student notices:', error);
+    console.error('Error fetching faculty notices:', error);
     return NextResponse.json(
       { message: 'Failed to fetch notices', error: error.message }, 
       { status: 500 }

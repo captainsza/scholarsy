@@ -6,17 +6,39 @@ import jwt from 'jsonwebtoken';
 const prisma = new PrismaClient();
 
 // GET - get all subjects for a course
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { courseId: string } }
-) {
+export async function GET(req: NextRequest, { params }: { params: { courseId: string } }) {
   try {
-    const courseId = params.courseId;
-
-    if (!courseId) {
-      return NextResponse.json({ message: 'Course ID is required' }, { status: 400 });
+    // Verify authentication
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
+    
+    const { courseId } = params;
+    
+    // Validate course exists
+    const courseExists = await prisma.course.findUnique({
+      where: { id: courseId },
+    });
+    
+    if (!courseExists) {
+      return NextResponse.json(
+        { message: 'Course not found' }, 
+        { status: 404 }
+      );
+    }
+    
     // Get subjects for the course
     const subjects = await prisma.subject.findMany({
       where: { courseId },
@@ -25,19 +47,32 @@ export async function GET(
           include: {
             user: {
               include: {
-                profile: true,
-              },
-            },
-          },
-        },
+                profile: true
+              }
+            }
+          }
+        }
       },
+      orderBy: { name: 'asc' }
     });
-
-    return NextResponse.json({ subjects });
+    
+    // Transform subject data for frontend
+    const transformedSubjects = subjects.map(subject => ({
+      id: subject.id,
+      name: subject.name,
+      code: subject.code,
+      creditHours: subject.creditHours,
+      facultyId: subject.facultyId,
+      facultyName: subject.faculty ? 
+        `${subject.faculty.user.profile?.firstName || ''} ${subject.faculty.user.profile?.lastName || ''}`.trim() : 
+        null
+    }));
+    
+    return NextResponse.json({ subjects: transformedSubjects });
   } catch (error: any) {
-    console.error('Error fetching subjects:', error);
+    console.error('Subjects fetch error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch subjects' },
+      { message: 'Failed to fetch subjects', error: error.message }, 
       { status: 500 }
     );
   } finally {

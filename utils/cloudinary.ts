@@ -1,42 +1,66 @@
-/**
- * Uploads a file to Cloudinary directly from the server-side
- * @param file Base64 encoded file data
- * @returns URL of the uploaded image
- */
-export async function uploadToCloudinary(file: string): Promise<string> {
+import { v2 as cloudinary } from 'cloudinary';
+
+// Configure Cloudinary
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
+
+// Function to upload image to Cloudinary
+export const uploadToCloudinary = async (imageBase64: string, options = {}) => {
   try {
-    // Make sure we have a base64 string
-    if (!file.startsWith('data:')) {
-      throw new Error('Invalid file format. Expected base64 data URI.');
-    }
-    
-    // For server-side use, we need to use the full URL
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-    const response = await fetch(`${baseUrl}/api/upload`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ image: file }),
+    const result = await cloudinary.uploader.upload(imageBase64, {
+      resource_type: 'image',
+      ...options,
     });
+    return result.secure_url;
+  } catch (error) {
+    console.error('Error uploading image to Cloudinary:', error);
+    throw error;
+  }
+};
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to upload image');
+// Function to upload any file type to Cloudinary
+export const uploadFileToCloudinary = async (fileBase64: string, fileType: string, options = {}) => {
+  try {
+    // Determine resource type based on file extension
+    let resourceType = 'auto';
+    if (fileType.includes('image')) {
+      resourceType = 'image';
+    } else if (fileType.includes('pdf') || fileType.includes('doc') || fileType.includes('xls') || fileType.includes('ppt')) {
+      resourceType = 'raw';
+    } else if (fileType.includes('video')) {
+      resourceType = 'video';
     }
 
-    const data = await response.json();
-    return data.url;
+    const result = await cloudinary.uploader.upload(fileBase64, {
+      resource_type: resourceType,
+      ...options,
+    });
+    
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      resourceType: resourceType,
+      format: result.format,
+      originalFilename: options.originalFilename || 'file'
+    };
   } catch (error) {
-    console.error('Image upload error:', error);
-    throw new Error('Failed to upload image');
+    console.error('Error uploading file to Cloudinary:', error);
+    throw error;
   }
-}
+};
 
-/**
- * This function is a client-side placeholder for deleting images
- */
-export async function deleteFromCloudinary(url: string): Promise<void> {
-  // In a client environment, we'd call an API route
-  console.log('Would delete image URL:', url);
-}
+// Function to delete resources from Cloudinary
+export const deleteFromCloudinary = async (publicId: string, resourceType: string = 'image') => {
+  try {
+    const result = await cloudinary.uploader.destroy(publicId, {
+      resource_type: resourceType,
+    });
+    return result;
+  } catch (error) {
+    console.error('Error deleting resource from Cloudinary:', error);
+    throw error;
+  }
+};

@@ -1,260 +1,272 @@
 "use client";
 
-import { useState } from "react";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/button";
+import { useState, useEffect } from 'react';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Edit, Trash, MoreHorizontal, Copy, Calendar, Clock } from "lucide-react";
-import { 
+} from '@/components/ui/dropdown-menu';
+import { toast } from '@/components/ui/toastall';
+import { useRouter } from 'next/navigation';
+import { MoreHorizontal, Edit, Trash2, Calendar, Clock } from 'lucide-react';
+import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog";
-import { toast } from "@/components/ui/toastall";
-import { useRouter } from "next/navigation";
+  DialogTitle,
+} from '@/components/ui/dialog';
 
 interface ScheduleItem {
   id: string;
   courseId: string;
   courseName: string;
+  subjectName: string;
+  subjectCode: string;
+  facultyName: string;
+  roomName: string;
   dayOfWeek: string;
   startTime: string;
   endTime: string;
-  roomName: string;
-  facultyName: string;
 }
 
 interface ScheduleTableProps {
-  schedules: ScheduleItem[];
-  onDelete?: (id: string) => void;
-  onEdit?: (id: string) => void;
+  filter?: {
+    courseId?: string;
+    dayOfWeek?: string;
+    roomId?: string;
+  };
 }
 
-export default function ScheduleTable({ 
-  schedules,
-  onDelete,
-  onEdit
-}: ScheduleTableProps) {
+export default function ScheduleTable({ filter = {} }: ScheduleTableProps) {
   const router = useRouter();
-  const [selectedSchedule, setSelectedSchedule] = useState<string | null>(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  
-  // Group schedules by day of week for better organization
-  const schedulesByDay = schedules.reduce((acc, schedule) => {
-    const day = schedule.dayOfWeek;
-    if (!acc[day]) {
-      acc[day] = [];
-    }
-    acc[day].push(schedule);
-    return acc;
-  }, {} as Record<string, ScheduleItem[]>);
-  
-  // Order days of the week
-  const orderedDays = [
-    "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"
-  ];
-  
-  // Format time to 12-hour format
-  const formatTime = (time: string) => {
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [deleteScheduleId, setDeleteScheduleId] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  useEffect(() => {
+    fetchSchedules();
+  }, [filter]);
+
+  const fetchSchedules = async () => {
     try {
-      const [hours, minutes] = time.split(':').map(Number);
-      return `${hours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
-    } catch (error) {
-      return time;
+      setLoading(true);
+      setError(null);
+      
+      // Build query string based on filters
+      const queryParams = new URLSearchParams();
+      if (filter.courseId) queryParams.append('courseId', filter.courseId);
+      if (filter.dayOfWeek) queryParams.append('dayOfWeek', filter.dayOfWeek);
+      if (filter.roomId) queryParams.append('roomId', filter.roomId);
+      
+      const url = `/api/admin/schedule${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const res = await fetch(url);
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch schedules');
+      }
+      
+      const data = await res.json();
+      setSchedules(data.schedules);
+    } catch (err: any) {
+      console.error('Error fetching schedules:', err);
+      setError('Failed to load schedules. Please try again.');
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to load schedules',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
     }
   };
-  
-  const handleEdit = (id: string) => {
-    if (onEdit) {
-      onEdit(id);
-    } else {
-      router.push(`/admin/schedule/${id}/edit`);
-    }
-  };
-  
-  const handleDelete = (id: string) => {
-    setSelectedSchedule(id);
-    setShowDeleteDialog(true);
-  };
-  
-  const confirmDelete = async () => {
-    if (!selectedSchedule) return;
-    
-    if (onDelete) {
-      onDelete(selectedSchedule);
-      setShowDeleteDialog(false);
-      setSelectedSchedule(null);
-      return;
-    }
+
+  const handleDelete = async () => {
+    if (!deleteScheduleId) return;
     
     try {
-      const response = await fetch(`/api/admin/schedule/${selectedSchedule}`, {
+      const res = await fetch(`/api/admin/schedule/${deleteScheduleId}`, {
         method: 'DELETE',
       });
       
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Schedule deleted successfully",
-        });
-        router.refresh(); // Refresh the page to update the schedule list
-      } else {
+      if (!res.ok) {
         throw new Error('Failed to delete schedule');
       }
-    } catch (error) {
-      console.error('Error deleting schedule:', error);
+      
+      setSchedules(schedules.filter(s => s.id !== deleteScheduleId));
       toast({
-        title: "Error",
-        description: "Failed to delete schedule",
-        variant: "destructive",
+        title: 'Success',
+        description: 'Schedule deleted successfully',
+      });
+    } catch (err: any) {
+      console.error('Error deleting schedule:', err);
+      toast({
+        title: 'Error',
+        description: err.message || 'Failed to delete schedule',
+        variant: 'destructive',
       });
     } finally {
-      setShowDeleteDialog(false);
-      setSelectedSchedule(null);
+      setConfirmingDelete(false);
+      setDeleteScheduleId(null);
     }
   };
-  
-  // Color mapping for days
-  const dayColorMap: Record<string, string> = {
-    "Monday": "bg-blue-100 text-blue-800",
-    "Tuesday": "bg-green-100 text-green-800",
-    "Wednesday": "bg-purple-100 text-purple-800",
-    "Thursday": "bg-amber-100 text-amber-800",
-    "Friday": "bg-pink-100 text-pink-800",
-    "Saturday": "bg-indigo-100 text-indigo-800",
-    "Sunday": "bg-gray-100 text-gray-800",
+
+  const formatTime = (time: string) => {
+    // Format 24h time to 12h format
+    const [hours, minutes] = time.split(':');
+    const hour = parseInt(hours, 10);
+    return `${hour % 12 || 12}:${minutes} ${hour >= 12 ? 'PM' : 'AM'}`;
   };
-  
-  if (schedules.length === 0) {
+
+  const getDayColor = (day: string) => {
+    // Return different background colors for days of the week
+    const colors: Record<string, string> = {
+      'Monday': 'bg-blue-50',
+      'Tuesday': 'bg-green-50',
+      'Wednesday': 'bg-yellow-50',
+      'Thursday': 'bg-purple-50',
+      'Friday': 'bg-pink-50',
+      'Saturday': 'bg-orange-50',
+      'Sunday': 'bg-gray-50',
+    };
+    return colors[day] || 'bg-gray-50';
+  };
+
+  if (loading) {
     return (
-      <div className="text-center py-10 bg-gray-50 rounded-lg">
-        <Calendar className="mx-auto h-12 w-12 text-gray-400" />
-        <h3 className="mt-2 text-sm font-medium text-gray-900">No schedules found</h3>
-        <p className="mt-1 text-sm text-gray-500">
-          Get started by creating a new class schedule.
-        </p>
-        <div className="mt-6">
-          <Button onClick={() => router.push('/admin/schedule/create')}>
-            Create New Schedule
-          </Button>
-        </div>
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-cyan-500"></div>
       </div>
     );
   }
-  
+
+  if (error) {
+    return (
+      <div className="text-center p-8">
+        <p className="text-red-500 mb-4">{error}</p>
+        <Button onClick={fetchSchedules}>Try Again</Button>
+      </div>
+    );
+  }
+
+  if (!schedules.length) {
+    return (
+      <div className="text-center p-8 bg-gray-50 rounded-md">
+        <Calendar className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+        <h3 className="text-lg font-medium text-gray-900">No schedules found</h3>
+        <p className="text-gray-500 mt-2">No class schedules match your criteria</p>
+      </div>
+    );
+  }
+
   return (
-    <div>
-      {orderedDays.filter(day => schedulesByDay[day]).map(day => (
-        <div key={day} className="mb-8">
-          <h3 className="text-lg font-semibold text-gray-800 mb-3">
-            <Badge className={dayColorMap[day] || "bg-gray-100 text-gray-800"}>
-              {day}
-            </Badge>
-          </h3>
-          
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-[180px]">Time</TableHead>
-                  <TableHead>Course</TableHead>
-                  <TableHead>Room</TableHead>
-                  <TableHead>Faculty</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {schedulesByDay[day]
-                  ?.sort((a, b) => a.startTime.localeCompare(b.startTime))
-                  .map((schedule) => (
-                    <TableRow key={schedule.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <Clock className="h-4 w-4 text-gray-500" />
-                          <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium">{schedule.courseName}</div>
-                      </TableCell>
-                      <TableCell>{schedule.roomName}</TableCell>
-                      <TableCell>{schedule.facultyName}</TableCell>
-                      <TableCell className="text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="h-8 w-8 p-0">
-                              <span className="sr-only">Open menu</span>
-                              <MoreHorizontal className="h-4 w-4" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => router.push(`/admin/schedule/${schedule.id}`)}>
-                              <Calendar className="mr-2 h-4 w-4" />
-                              <span>View Details</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => handleEdit(schedule.id)}>
-                              <Edit className="mr-2 h-4 w-4" />
-                              <span>Edit Schedule</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => router.push(`/admin/schedule/create?duplicate=${schedule.id}`)}>
-                              <Copy className="mr-2 h-4 w-4" />
-                              <span>Duplicate</span>
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem 
-                              onClick={() => handleDelete(schedule.id)}
-                              className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                            >
-                              <Trash className="mr-2 h-4 w-4" />
-                              <span>Delete</span>
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
-      ))}
-      
+    <>
+      <div className="overflow-x-auto rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Day</TableHead>
+              <TableHead>Time</TableHead>
+              <TableHead>Course</TableHead>
+              <TableHead>Subject</TableHead>
+              <TableHead>Faculty</TableHead>
+              <TableHead>Room</TableHead>
+              <TableHead className="w-[80px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {schedules.map((schedule) => (
+              <TableRow key={schedule.id} className={getDayColor(schedule.dayOfWeek)}>
+                <TableCell className="font-medium">{schedule.dayOfWeek}</TableCell>
+                <TableCell>
+                  <div className="flex items-center">
+                    <Clock className="h-3 w-3 mr-1 text-gray-500" />
+                    {formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}
+                  </div>
+                </TableCell>
+                <TableCell>{schedule.courseName}</TableCell>
+                <TableCell>
+                  <div>
+                    <div>{schedule.subjectName}</div>
+                    <div className="text-xs text-gray-500">{schedule.subjectCode}</div>
+                  </div>
+                </TableCell>
+                <TableCell>{schedule.facultyName}</TableCell>
+                <TableCell>
+                  {schedule.roomName || (
+                    <span className="text-gray-400 italic text-sm">Not assigned</span>
+                  )}
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" className="h-8 w-8 p-0">
+                        <span className="sr-only">Open menu</span>
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => router.push(`/admin/schedule/edit/${schedule.id}`)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        <span>Edit</span>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => {
+                          setDeleteScheduleId(schedule.id);
+                          setConfirmingDelete(true);
+                        }}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        <span>Delete</span>
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
       {/* Delete Confirmation Dialog */}
-      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+      <Dialog open={confirmingDelete} onOpenChange={setConfirmingDelete}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogTitle>Delete Schedule</DialogTitle>
             <DialogDescription>
               Are you sure you want to delete this schedule? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowDeleteDialog(false)}>
+            <Button
+              variant="outline"
+              onClick={() => setConfirmingDelete(false)}
+            >
               Cancel
             </Button>
-            <Button variant="destructive" onClick={confirmDelete}>
+            <Button
+              variant="destructive"
+              onClick={handleDelete}
+            >
               Delete
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }

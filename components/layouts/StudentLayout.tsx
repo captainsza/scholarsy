@@ -106,8 +106,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     },
     { icon: FileText, label: "Assignments", path: "/student/assignments" },
     { icon: Bell, label: "Notices", path: "/student/notices" },
-    { icon: LibraryBig, label: "Resources", path: "/student/resources" },
-    { icon: GraduationCap, label: "Academic Record", path: "/student/academic-record" },
     { icon: Settings, label: "Settings", path: "/student/settings" },
   ];
 

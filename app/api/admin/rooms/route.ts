@@ -20,22 +20,20 @@ export async function GET(req: NextRequest) {
       process.env.JWT_SECRET || 'your-secret-key'
     ) as { id: string, role: string };
     
-    if (decoded.role !== 'ADMIN') {
-      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    if (!['ADMIN', 'FACULTY'].includes(decoded.role)) {
+      return NextResponse.json({ message: 'Insufficient permissions' }, { status: 403 });
     }
     
-    // Get rooms
+    // Get all rooms
     const rooms = await prisma.room.findMany({
-      orderBy: {
-        name: 'asc'
-      }
+      orderBy: { name: 'asc' }
     });
     
     return NextResponse.json({ rooms });
   } catch (error: any) {
     console.error('Rooms fetch error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch rooms' }, 
+      { message: 'Failed to fetch rooms', error: error.message }, 
       { status: 500 }
     );
   } finally {
@@ -62,31 +60,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
     }
     
-    // Parse request body
+    // Get room data from request
     const { name, type, capacity } = await req.json();
     
-    // Validate required fields
-    if (!name || !type) {
+    if (!name || !capacity) {
       return NextResponse.json(
-        { message: 'Name and type are required' }, 
+        { message: 'Name and capacity are required' }, 
         { status: 400 }
       );
     }
     
-    // Create room
+    // Check if room with same name already exists
+    const existingRoom = await prisma.room.findFirst({
+      where: { name: { equals: name, mode: 'insensitive' } }
+    });
+    
+    if (existingRoom) {
+      return NextResponse.json(
+        { message: 'Room with this name already exists' }, 
+        { status: 409 }
+      );
+    }
+    
+    // Create new room
     const room = await prisma.room.create({
       data: {
         name,
-        type,
-        capacity: capacity || 30, // Default capacity if not provided
+        type: type || 'CLASSROOM',
+        capacity: Number(capacity)
       }
     });
     
-    return NextResponse.json(room, { status: 201 });
+    return NextResponse.json({ room }, { status: 201 });
   } catch (error: any) {
     console.error('Room creation error:', error);
     return NextResponse.json(
-      { message: 'Failed to create room' }, 
+      { message: 'Failed to create room', error: error.message }, 
       { status: 500 }
     );
   } finally {

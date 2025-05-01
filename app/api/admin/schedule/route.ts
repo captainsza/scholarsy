@@ -107,7 +107,7 @@ export async function GET(req: NextRequest) {
       }
     }
     
-    // Fetch class schedules with related data
+    // Fetch class schedules with related data, including subjects
     const classSchedules = await prisma.classSchedule.findMany({
       where,
       include: {
@@ -122,9 +122,23 @@ export async function GET(req: NextRequest) {
                 },
               },
             },
+            subjects: true,
           },
         },
         room: true,
+        subject: {
+          include: {
+            faculty: {
+              include: {
+                user: {
+                  include: {
+                    profile: true
+                  }
+                }
+              }
+            }
+          }
+        }
       },
       orderBy: [
         // Order by day of week with custom ordering
@@ -140,22 +154,28 @@ export async function GET(req: NextRequest) {
     
     // Transform data for the frontend
     const transformedSchedules = classSchedules.map(schedule => {
-      // Get faculty name if available
-      const facultyName = schedule.course.faculty?.user.profile
-        ? `${schedule.course.faculty.user.profile.firstName} ${schedule.course.faculty.user.profile.lastName}`
-        : 'Unassigned';
+      // Get faculty name based on the assigned faculty to the schedule or subject
+      let facultyName = "Unassigned";
+      if (schedule.subject?.faculty?.user?.profile) {
+        facultyName = `${schedule.subject.faculty.user.profile.firstName} ${schedule.subject.faculty.user.profile.lastName}`;
+      } else if (schedule.course?.faculty?.user?.profile) {
+        facultyName = `${schedule.course.faculty.user.profile.firstName} ${schedule.course.faculty.user.profile.lastName}`;
+      }
       
       return {
         id: schedule.id,
         courseId: schedule.courseId,
         courseName: schedule.course.name,
+        subjectId: schedule.subjectId,
+        subjectName: schedule.subject ? schedule.subject.name : "General",
+        subjectCode: schedule.subject ? schedule.subject.code : "",
         roomName: schedule.room?.name || 'Unassigned',
         roomId: schedule.roomId,
         dayOfWeek: schedule.dayOfWeek,
         startTime: schedule.startTime,
         endTime: schedule.endTime,
         facultyName,
-        facultyId: schedule.course.faculty?.id || null,
+        facultyId: schedule.subject?.facultyId || schedule.course?.facultyId || null,
       };
     });
     
@@ -193,16 +213,18 @@ export async function POST(req: NextRequest) {
     
     const { 
       courseId, 
+      subjectId,
+      facultyId,
       dayOfWeek, 
       startTime, 
       endTime, 
       roomId 
     } = await req.json();
     
-    // Validate required fields
-    if (!courseId || !dayOfWeek || !startTime || !endTime) {
+    // Validate required fields - make roomId optional
+    if (!courseId || !subjectId || !dayOfWeek || !startTime || !endTime) {
       return NextResponse.json(
-        { message: 'Missing required fields' }, 
+        { message: 'Required fields missing: course, subject, day and time are required' }, 
         { status: 400 }
       );
     }
@@ -219,8 +241,23 @@ export async function POST(req: NextRequest) {
       );
     }
     
+    // Validate the subject exists and belongs to the course
+    const subjectExists = await prisma.subject.findFirst({
+      where: { 
+        id: subjectId,
+        courseId: courseId
+      },
+    });
+    
+    if (!subjectExists) {
+      return NextResponse.json(
+        { message: 'Subject not found or does not belong to the selected course' }, 
+        { status: 404 }
+      );
+    }
+    
     // If roomId is provided, validate the room exists
-    if (roomId) {
+    if (roomId && roomId !== "none") {
       const roomExists = await prisma.room.findUnique({
         where: { id: roomId },
       });
@@ -231,11 +268,9 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
-    }
-    
-    // Check for scheduling conflicts (room double-booking)
-    if (roomId) {
-      const conflictingSchedule = await prisma.classSchedule.findFirst({
+      
+      // Check for room booking conflicts only if a room is selected
+      const roomConflict = await prisma.classSchedule.findFirst({
         where: {
           dayOfWeek,
           roomId,
@@ -250,7 +285,7 @@ export async function POST(req: NextRequest) {
               startTime: { lt: endTime },
               endTime: { gte: endTime },
             },
-            // Schedule spans an existing schedule
+            // Schedule encompasses an existing schedule
             {
               startTime: { gte: startTime },
               endTime: { lte: endTime },
@@ -259,7 +294,7 @@ export async function POST(req: NextRequest) {
         },
       });
       
-      if (conflictingSchedule) {
+      if (roomConflict) {
         return NextResponse.json(
           { message: 'Room is already booked during this time slot' }, 
           { status: 409 }
@@ -267,22 +302,69 @@ export async function POST(req: NextRequest) {
       }
     }
     
-    // Create the new schedule
+    // Check for faculty conflicts
+    if (facultyId) {
+      const facultyConflict = await prisma.classSchedule.findFirst({
+        where: {
+          dayOfWeek,
+          subject: {
+            facultyId
+          },
+          OR: [
+            // Schedule starts during an existing schedule
+            {
+              startTime: { lte: startTime },
+              endTime: { gt: startTime },
+            },
+            // Schedule ends during an existing schedule
+            {
+              startTime: { lt: endTime },
+              endTime: { gte: endTime },
+            },
+            // Schedule encompasses an existing schedule
+            {
+              startTime: { gte: startTime },
+              endTime: { lte: endTime },
+            },
+          ],
+        },
+      });
+      
+      if (facultyConflict) {
+        return NextResponse.json(
+          { message: 'Faculty is already scheduled during this time slot' }, 
+          { status: 409 }
+        );
+      }
+    }
+    
+    // Create the schedule with an optional roomId
     const newSchedule = await prisma.classSchedule.create({
       data: {
         courseId,
+        subjectId,
         dayOfWeek,
         startTime,
         endTime,
-        roomId,
+        // Only include roomId if it's provided and not "none"
+        ...(roomId && roomId !== "none" ? { roomId } : {})
       },
       include: {
         course: true,
+        subject: true,
         room: true,
       },
     });
     
-    return NextResponse.json(newSchedule, { status: 201 });
+    // If faculty was provided and different from current subject faculty, update the subject
+    if (facultyId && subjectExists.facultyId !== facultyId) {
+      await prisma.subject.update({
+        where: { id: subjectId },
+        data: { facultyId }
+      });
+    }
+    
+    return NextResponse.json({ schedule: newSchedule }, { status: 201 });
   } catch (error: any) {
     console.error('Schedule creation error:', error);
     return NextResponse.json(

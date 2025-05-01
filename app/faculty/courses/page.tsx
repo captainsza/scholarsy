@@ -2,92 +2,157 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import FacultyLayout from "@/components/layouts/FacultyLayout";
 import { useAuth } from "@/context/AuthContext";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/Badge";
+import FacultyLayout from "@/components/layouts/FacultyLayout";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { Search } from "lucide-react";
-import Link from "next/link";
+import { toast } from "@/components/ui/toastall";
+import { 
+  Card, 
+  CardContent, 
+  CardDescription, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle 
+} from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/Badge";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+  Search,
+  BookOpen,
+  Users,
+  CalendarDays,
+  Clock,
+  GraduationCap,
+  CheckCircle,
+  AlertCircle,
+  ChevronRight
+} from "lucide-react";
 
-interface CourseWithSections {
+interface Subject {
   id: string;
-  code: string;
   name: string;
+  code: string;
   credits: number;
-  department: string;
-  sections: {
-    id: string;
-    name: string;
-    academicTerm: string;
-    _count: {
-      enrollments: number;
-      subjects: number;
-    };
-  }[];
+  isTaught: boolean;
+  facultyName: string;
+}
+
+interface CourseSchedule {
+  id: string;
+  day: string;
+  startTime: string;
+  endTime: string;
+  roomName: string;
+}
+
+interface Course {
+  id: string;
+  name: string;
+  code: string;
+  semester: string;
+  description: string;
+  isCoordinator: boolean;
+  credits: number;
+  subjectCount: number;
+  studentCount: number;
+  subjects: Subject[];
+  schedule: CourseSchedule[];
 }
 
 export default function FacultyCourses() {
   const { user } = useAuth();
   const router = useRouter();
-  const [courses, setCourses] = useState<CourseWithSections[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string>("");
-  const [searchTerm, setSearchTerm] = useState<string>("");
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("all");
+  
+  // Group subjects by course for the "Teaching Subjects" view
+  const [subjectsByCourse, setSubjectsByCourse] = useState<Record<string, {
+    courseName: string;
+    courseId: string;
+    semester: string;
+    subjects: Subject[];
+  }>>({});
 
   useEffect(() => {
     const fetchCourses = async () => {
+      if (!user?.faculty?.id) return;
+      
       try {
         setLoading(true);
-        // Pass faculty ID as query param
-        const facultyId = user?.faculty?.id;
-        if (!facultyId) {
-          setError("Faculty information not found");
-          return;
-        }
-        
-        const response = await fetch(`/api/faculty/courses?facultyId=${facultyId}`);
+        const response = await fetch(`/api/faculty/courses?facultyId=${user.faculty.id}`);
         
         if (!response.ok) {
-          throw new Error("Failed to fetch courses");
+          throw new Error(`Error: ${response.status}`);
         }
         
         const data = await response.json();
-        setCourses(data.courses);
-      } catch (err: any) {
-        console.error("Error fetching courses:", err);
-        setError(err.message || "Failed to load courses. Please try again.");
+        setCourses(data.courses || []);
+        
+        // Group subjects by course for the "Teaching Subjects" view
+        const subjectsByCourseTmp: Record<string, {
+          courseName: string;
+          courseId: string;
+          semester: string;
+          subjects: Subject[];
+        }> = {};
+        
+        data.courses.forEach((course: Course) => {
+          const taughtSubjects = course.subjects.filter(subject => subject.isTaught);
+          if (taughtSubjects.length > 0) {
+            if (!subjectsByCourseTmp[course.id]) {
+              subjectsByCourseTmp[course.id] = {
+                courseName: course.name,
+                courseId: course.id,
+                semester: course.semester,
+                subjects: []
+              };
+            }
+            subjectsByCourseTmp[course.id].subjects.push(...taughtSubjects);
+          }
+        });
+        
+        setSubjectsByCourse(subjectsByCourseTmp);
+      } catch (error) {
+        console.error("Failed to fetch faculty courses:", error);
+        toast({
+          title: "Error",
+          description: "Failed to load courses. Please try refreshing the page.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
-    if (user) {
-      fetchCourses();
-    }
-  }, [user]);
+    fetchCourses();
+  }, [user?.faculty?.id]);
 
-  // Filter courses based on search term
-  const filteredCourses = courses.filter(
-    (course) =>
-      course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      course.department.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter courses based on the search query and active tab
+  const filteredCourses = courses.filter(course => {
+    // Search filter
+    const searchMatch = course.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      course.code.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    // Tab filter
+    if (activeTab === "coordinating") {
+      return searchMatch && course.isCoordinator;
+    } else if (activeTab === "teaching") {
+      return searchMatch && course.subjects.some(subject => subject.isTaught);
+    }
+    
+    // "all" tab or default
+    return searchMatch;
+  });
 
   if (loading) {
     return (
       <FacultyLayout>
-        <div className="py-6 px-4 sm:px-6 lg:px-8">
-          <LoadingSpinner message="Loading your courses..." />
+        <div className="flex items-center justify-center min-h-screen -mt-16">
+          <LoadingSpinner message="Loading courses..." />
         </div>
       </FacultyLayout>
     );
@@ -95,107 +160,204 @@ export default function FacultyCourses() {
 
   return (
     <FacultyLayout>
-      <div className="py-6 px-4 sm:px-6 lg:px-8">
+      <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900">My Courses</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            View all your assigned courses and sections
+          <h1 className="text-2xl font-bold text-gray-900">My Teaching</h1>
+          <p className="text-gray-600 mt-1">
+            Manage your courses, subjects, and teaching responsibilities
           </p>
         </div>
-
-        {/* Search box */}
-        <div className="mb-6">
-          <div className="relative max-w-sm">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-5 w-5 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Search courses..."
-              className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-purple-500 focus:border-purple-500 sm:text-sm"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+        
+        {/* Filters & Search */}
+        <div className="flex flex-col md:flex-row md:items-center mb-6 gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search courses or subjects..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
             />
           </div>
         </div>
-
-        {error && (
-          <div className="mb-6 bg-red-50 p-4 rounded-md">
-            <p className="text-sm text-red-700">{error}</p>
-          </div>
-        )}
-
-        {filteredCourses.length === 0 ? (
-          <div className="bg-white p-8 rounded-md shadow-sm text-center">
-            <div className="mx-auto h-12 w-12 text-gray-400">
-              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-              </svg>
-            </div>
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No courses found</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {searchTerm ? "No courses match your search." : "You don't have any assigned courses yet."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6">
-            {filteredCourses.map((course) => (
-              <Card key={course.id}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center">
-                        <CardTitle>{course.name}</CardTitle>
-                        <Badge variant="outline" className="ml-2">
-                          {course.code}
-                        </Badge>
+        
+        {/* Tabs */}
+        <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab} className="mb-8">
+          <TabsList>
+            <TabsTrigger value="all">All Courses</TabsTrigger>
+            <TabsTrigger value="teaching">Teaching Subjects</TabsTrigger>
+          </TabsList>
+          
+          {/* All Courses Tab */}
+          <TabsContent value="all" className="mt-6">
+            {filteredCourses.length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <BookOpen className="mx-auto h-16 w-16 text-gray-400" />
+                <h3 className="mt-2 text-xl font-medium text-gray-900">No courses found</h3>
+                <p className="mt-1 text-gray-500">
+                  {searchQuery ? "No courses match your search." : "You haven't been assigned any courses yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCourses.map((course) => (
+                  <Card key={course.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                    <CardHeader className="pb-3">
+                      <div className="flex justify-between">
+                        <div>
+                          <CardTitle className="font-bold">{course.name}</CardTitle>
+                          <CardDescription className="mt-1">
+                            {course.code} | {course.semester}
+                          </CardDescription>
+                        </div>
+                        {course.isCoordinator && (
+                          <Badge className="bg-indigo-100 text-indigo-800 hover:bg-indigo-200">
+                            Coordinator
+                          </Badge>
+                        )}
                       </div>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {course.department} • {course.credits} Credits
-                      </p>
-                    </div>
-                    <Badge variant="outline" className="text-xs">
-                      {course.sections.length} {course.sections.length === 1 ? "Section" : "Sections"}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="overflow-x-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Section</TableHead>
-                          <TableHead>Term</TableHead>
-                          <TableHead>Students</TableHead>
-                          <TableHead>Subjects</TableHead>
-                          <TableHead className="text-right">Actions</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {course.sections.map((section) => (
-                          <TableRow key={section.id}>
-                            <TableCell className="font-medium">{section.name}</TableCell>
-                            <TableCell>{section.academicTerm}</TableCell>
-                            <TableCell>{section._count.enrollments}</TableCell>
-                            <TableCell>{section._count.subjects}</TableCell>
-                            <TableCell className="text-right">
-                              <Link
-                                href={`/faculty/courses/${course.id}/sections/${section.id}`}
-                                className="text-purple-600 hover:text-purple-900"
-                              >
-                                View Details
-                              </Link>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
+                    </CardHeader>
+                    <CardContent>
+                      {course.description ? (
+                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{course.description}</p>
+                      ) : (
+                        <p className="text-sm text-gray-500 mb-4 italic">No description available</p>
+                      )}
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Users className="h-4 w-4 mr-2 text-indigo-500" />
+                          <span>{course.studentCount} Students</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <BookOpen className="h-4 w-4 mr-2 text-indigo-500" />
+                          <span>{course.subjectCount} Subjects</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <GraduationCap className="h-4 w-4 mr-2 text-indigo-500" />
+                          <span>{course.credits} Credits</span>
+                        </div>
+                        <div className="flex items-center text-sm text-gray-600">
+                          <CalendarDays className="h-4 w-4 mr-2 text-indigo-500" />
+                          <span>{course.schedule.length} Classes</span>
+                        </div>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0 pb-4">
+                      <Button 
+                        variant="outline" 
+                        className="w-full"
+                        onClick={() => router.push(`/faculty/courses/${course.id}`)}
+                      >
+                        View Details
+                        <ChevronRight className="ml-2 h-4 w-4" />
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </TabsContent>
+          {/* Teaching Subjects Tab */}
+          <TabsContent value="teaching" className="mt-6">
+            {Object.keys(subjectsByCourse).length === 0 ? (
+              <div className="text-center py-12 bg-gray-50 rounded-lg">
+                <BookOpen className="mx-auto h-16 w-16 text-gray-400" />
+                <h3 className="mt-2 text-xl font-medium text-gray-900">No teaching subjects found</h3>
+                <p className="mt-1 text-gray-500">
+                  {searchQuery 
+                    ? "No subjects match your search." 
+                    : "You aren't assigned to teach any subjects yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {Object.values(subjectsByCourse)
+                  .filter(courseGroup => {
+                    if (!searchQuery) return true;
+                    return (
+                      courseGroup.courseName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                      courseGroup.subjects.some(subject => 
+                        subject.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                        subject.code.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                    );
+                  })
+                  .map(courseGroup => (
+                    <Card key={courseGroup.courseId}>
+                      <CardHeader className="pb-2">
+                        <div className="flex justify-between items-center">
+                          <div>
+                            <CardTitle>{courseGroup.courseName}</CardTitle>
+                            <CardDescription>{courseGroup.semester}</CardDescription>
+                          </div>
+                          <Button 
+                            variant="outline"
+                            onClick={() => router.push(`/faculty/courses/${courseGroup.courseId}`)}
+                          >
+                            View Course
+                          </Button>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="overflow-hidden">
+                          <table className="min-w-full divide-y divide-gray-200">
+                            <thead className="bg-gray-50">
+                              <tr>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Subject
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Code
+                                </th>
+                                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Credits
+                                </th>
+                                <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                  Actions
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody className="bg-white divide-y divide-gray-200">
+                              {courseGroup.subjects.map(subject => (
+                                <tr key={subject.id}>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm font-medium text-gray-900">{subject.name}</div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500">{subject.code}</div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap">
+                                    <div className="text-sm text-gray-500">{subject.credits}</div>
+                                  </td>
+                                  <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <Button 
+                                      variant="ghost" 
+                                      className="text-indigo-600 hover:text-indigo-900"
+                                      onClick={() => router.push(`/faculty/subjects/${subject.id}`)}
+                                    >
+                                      Manage
+                                    </Button>
+                                    <Button 
+                                      variant="ghost" 
+                                      className="text-indigo-600 hover:text-indigo-900"
+                                      onClick={() => router.push(`/faculty/subjects/${subject.id}/attendance`)}
+                                    >
+                                      Attendance
+                                    </Button>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </div>
     </FacultyLayout>
   );

@@ -1,88 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { getSessionUser } from '@/lib/session-utils';
-import { sendEmail } from '@/utils/email';
+import jwt from 'jsonwebtoken';
+import { cookies } from 'next/headers';
+import { uploadFileToCloudinary } from '@/utils/cloudinary';
 
 const prisma = new PrismaClient();
 
-// GET: Fetch all notices
+// GET notices with filters
 export async function GET(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
+    // Get token from cookies
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Query params
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
+
+    // Get search filters from query params
     const searchParams = req.nextUrl.searchParams;
-    const limit = searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : undefined;
-    const page = searchParams.get('page') ? parseInt(searchParams.get('page')!) : undefined;
-    const target = searchParams.get('target');
-    const type = searchParams.get('type');
-
-    // Build the query
-    const query: any = {};
-
-    if (target) {
-      // Handle targeting queries
-      if (target === 'published') {
-        query.isPublished = true;
-      } else if (target === 'pinned') {
-        query.isPinned = true;
-      } else if (target === 'expired') {
-        query.expiryDate = { lt: new Date() };
-      } else if (target === 'upcoming') {
-        query.publishDate = { gt: new Date() };
+    const search = searchParams.get('search') || '';
+    const status = searchParams.get('status');
+    
+    // Build the where clause for Prisma query
+    const where: any = {};
+    
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { content: { contains: search, mode: 'insensitive' } },
+      ];
+    }
+    
+    if (status) {
+      switch (status) {
+        case 'published':
+          where.isPublished = true;
+          break;
+        case 'draft':
+          where.isPublished = false;
+          break;
+        case 'pinned':
+          where.isPinned = true;
+          break;
+        case 'expired':
+          where.expiryDate = { lt: new Date() };
+          break;
       }
     }
 
-    if (type) {
-      query.targetType = type;
-    }
-
-    // Calculate pagination
-    const skip = page && limit ? (page - 1) * limit : undefined;
-
-    // Execute query
+    // Fetch notices
     const notices = await prisma.notice.findMany({
-      where: query,
+      where,
       orderBy: [
-        { isPinned: 'desc' },
-        { publishDate: 'desc' }
+        { isPinned: 'desc' }, // Pinned notices first
+        { publishDate: 'desc' }, // Most recent first
       ],
-      take: limit,
-      skip,
     });
 
-    // Count total for pagination
-    const total = await prisma.notice.count({ where: query });
-
-    // Add view counts to each notice
-    const noticesWithViewCount = await Promise.all(
-      notices.map(async (notice: { id: any; }) => {
-        const viewCount = await prisma.noticeView.count({
-          where: { noticeId: notice.id },
-        });
-        return { ...notice, viewCount };
-      })
-    );
-
-    return NextResponse.json({
-      notices: noticesWithViewCount,
-      pagination: {
-        total,
-        page: page || 1,
-        limit: limit || total,
-      },
-    });
-  } catch (error) {
-    console.error('Failed to fetch notices:', error);
+    return NextResponse.json({ notices });
+  } catch (error: any) {
+    console.error('Get notices error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch notices' },
+      { message: 'Failed to fetch notices', error: error.message }, 
       { status: 500 }
     );
   } finally {
@@ -90,56 +79,124 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST: Create new notice
+// POST new notice
 export async function POST(req: NextRequest) {
   try {
-    const user = await getSessionUser(req);
-
-    if (!user || user.role !== 'ADMIN') {
-      return NextResponse.json(
-        { message: 'Unauthorized' },
-        { status: 401 }
-      );
-    }
-
-    const data = await req.json();
+    // Get token from cookies
+    const token = (await cookies()).get('auth-token')?.value;
     
-    // Required fields validation
-    if (!data.title || !data.content || !data.targetType) {
-      return NextResponse.json(
-        { message: 'Title, content, and target type are required' },
-        { status: 400 }
-      );
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
-    // Handle target fields based on target type
-    const { targetType, targetUserRoles, targetDepartments, targetCourseIds, targetSectionIds, sendEmail: shouldSendEmail, ...noticeData } = data;
+    // Verify and decode the token
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'ADMIN') {
+      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    }
+
+    // Get the request body
+    const data = await req.json();
+    const { 
+      title, 
+      content, 
+      publishDate, 
+      expiryDate, 
+      isPublished, 
+      isPinned,
+      targetType,
+      targetCourseIds, 
+      targetDepartments, 
+      targetUserRoles, 
+      newAttachments, // Array of {data: Base64String, type: MimeType, name: FileName}
+      linkUrl
+    } = data;
+
+    // Get user info for author details
+    const user = await prisma.user.findUnique({
+      where: { id: decoded.id },
+      include: { profile: true },
+    });
+    
+    if (!user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+
+    // Process attachments if any
+    let attachmentUrls: { url: string, name: string, type: string }[] = [];
+    
+    if (newAttachments && Array.isArray(newAttachments) && newAttachments.length > 0) {
+      // Upload each attachment to Cloudinary
+      const uploadPromises = newAttachments.map(async (attachment) => {
+        try {
+          const result = await uploadFileToCloudinary(
+            attachment.data, 
+            attachment.type,
+            { 
+              folder: 'scholarsync/notice_attachments',
+              originalFilename: attachment.name 
+            }
+          );
+          
+          return { 
+            url: result.url, 
+            name: attachment.name, 
+            type: attachment.type 
+          };
+        } catch (error) {
+          console.error('Error uploading attachment:', error);
+          return null;
+        }
+      });
+      
+      const uploadResults = await Promise.all(uploadPromises);
+      attachmentUrls = uploadResults.filter(Boolean) as { url: string, name: string, type: string }[];
+    }
 
     // Create the notice
     const notice = await prisma.notice.create({
       data: {
-        ...noticeData,
-        targetType,
-        targetUserRoles: targetType === 'ROLE' || targetType === 'CUSTOM' ? targetUserRoles || [] : [],
-        targetDepartments: targetType === 'DEPARTMENT' || targetType === 'CUSTOM' ? targetDepartments || [] : [],
-        targetCourseIds: targetType === 'COURSE' || targetType === 'CUSTOM' ? targetCourseIds || [] : [],
-        targetSectionIds: targetType === 'SECTION' || targetType === 'CUSTOM' ? targetSectionIds || [] : [],
+        title,
+        content,
+        publishDate: publishDate ? new Date(publishDate) : new Date(),
+        expiryDate: expiryDate ? new Date(expiryDate) : null,
+        isPublished: isPublished !== undefined ? isPublished : true,
+        isPinned: isPinned || false,
+        targetType: targetType || 'ALL',
+        targetCourseIds: targetCourseIds || [],
+        targetDepartments: targetDepartments || [],
+        targetUserRoles: targetUserRoles || [],
         authorId: user.id,
         authorRole: user.role,
-        authorName: `${user.profile?.firstName || ''} ${user.profile?.lastName || ''}`.trim() || user.email
+        authorName: user.profile ? 
+          `${user.profile.firstName} ${user.profile.lastName}` : 
+          user.email,
+        attachmentUrls: attachmentUrls.map(att => JSON.stringify(att)),
+        linkUrl: linkUrl || null,
       },
     });
-
-    // Handle email notifications if requested
-    if (shouldSendEmail) {
-      await sendNoticeEmails(notice);
+    
+    // Send email notifications if the notice is published
+    let emailsSent = false;
+    if (notice.isPublished) {
+      emailsSent = await sendNoticeEmails(notice);
     }
 
-    return NextResponse.json({ notice }, { status: 201 });
-  } catch (error) {
-    console.error('Failed to create notice:', error);
+    return NextResponse.json({ 
+      message: 'Notice created successfully', 
+      notice,
+      attachments: attachmentUrls,
+      emailsSent
+    }, { status: 201 });
+    
+  } catch (error: any) {
+    console.error('Create notice error:', error);
     return NextResponse.json(
-      { message: 'Failed to create notice' },
+      { message: 'Failed to create notice', error: error.message }, 
       { status: 500 }
     );
   } finally {

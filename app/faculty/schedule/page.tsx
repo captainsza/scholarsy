@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import StudentLayout from "@/components/layouts/StudentLayout";
+import FacultyLayout from "@/components/layouts/FacultyLayout";
 import { 
   Card, 
   CardContent, 
@@ -11,11 +11,12 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { 
-  CalendarDays, 
+  Calendar, 
   Clock,
   MapPin,
-  User,
-  BookOpen
+  Briefcase,
+  BookOpen,
+  Users
 } from "lucide-react";
 import { toast } from "@/components/ui/toastall";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
@@ -31,17 +32,18 @@ interface ScheduleItem {
   startTime: string;
   endTime: string;
   roomName: string;
-  facultyName: string;
+  class: string;
   subjectName?: string;
   subjectCode?: string;
 }
 
-export default function StudentSchedulePage() {
+export default function FacultySchedulePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [selectedDay, setSelectedDay] = useState<string>(getCurrentDay());
   const [todaySchedules, setTodaySchedules] = useState<ScheduleItem[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   // Get current day of week
   function getCurrentDay() {
@@ -55,9 +57,9 @@ export default function StudentSchedulePage() {
     const fetchSchedules = async () => {
       try {
         setLoading(true);
+        setError(null);
         
-        // Use student-specific API endpoint
-        const response = await fetch('/api/student/schedule');
+        const response = await fetch('/api/faculty/schedule');
         if (!response.ok) {
           throw new Error('Failed to fetch schedules');
         }
@@ -76,6 +78,7 @@ export default function StudentSchedulePage() {
         );
       } catch (error) {
         console.error('Error loading schedule data:', error);
+        setError('Failed to load your schedule. Please try again.');
         toast({
           title: "Error",
           description: "Failed to load your schedule. Please try again.",
@@ -93,7 +96,7 @@ export default function StudentSchedulePage() {
   const schedulesByDay = schedules.reduce((acc, schedule) => {
     const day = schedule.dayOfWeek;
     if (!acc[day]) {
-      acc[day]   = [];
+      acc[day] = [];
     }
     acc[day].push(schedule);
     return acc;
@@ -134,39 +137,91 @@ export default function StudentSchedulePage() {
     }
   };
 
+  // Calculate time until class starts
+  const calculateTimeUntil = (startTime: string): string => {
+    try {
+      const [hours, minutes] = startTime.split(':').map(Number);
+      const now = new Date();
+      const startDate = new Date();
+      startDate.setHours(hours, minutes, 0);
+      
+      // If start time is in the past for today, return empty string
+      if (now > startDate) return "";
+      
+      const diffMs = startDate.getTime() - now.getTime();
+      const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+      const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      
+      if (diffHours > 0) {
+        return `${diffHours}h ${diffMinutes}m`;
+      } else {
+        return `${diffMinutes} minutes`;
+      }
+    } catch (error) {
+      return "";
+    }
+  };
+
+  // Calculate class duration
+  const calculateDuration = (startTime: string, endTime: string): string => {
+    try {
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const [endHour, endMinute] = endTime.split(':').map(Number);
+      
+      // Calculate total minutes
+      const startMinutes = startHour * 60 + startMinute;
+      const endMinutes = endHour * 60 + endMinute;
+      const durationMinutes = endMinutes - startMinutes;
+      
+      // Convert to hours and minutes
+      const hours = Math.floor(durationMinutes / 60);
+      const minutes = durationMinutes % 60;
+      
+      if (hours === 0) {
+        return `${minutes} min`;
+      } else if (minutes === 0) {
+        return `${hours} hr`;
+      } else {
+        return `${hours} hr ${minutes} min`;
+      }
+    } catch (error) {
+      return "?";
+    }
+  };
+
   // Color mapping for days
   const dayColorMap: Record<string, string> = {
-    "Monday": "bg-blue-100 text-blue-800",
+    "Monday": "bg-indigo-100 text-indigo-800",
     "Tuesday": "bg-green-100 text-green-800",
     "Wednesday": "bg-purple-100 text-purple-800",
     "Thursday": "bg-amber-100 text-amber-800",
     "Friday": "bg-pink-100 text-pink-800",
-    "Saturday": "bg-indigo-100 text-indigo-800",
+    "Saturday": "bg-blue-100 text-blue-800",
     "Sunday": "bg-gray-100 text-gray-800",
   };
 
   if (loading) {
     return (
-      <StudentLayout>
+      <FacultyLayout>
         <div className="px-4 sm:px-6 lg:px-8 py-8">
-          <LoadingSpinner message="Loading your schedule..." />
+          <LoadingSpinner message="Loading your teaching schedule..." />
         </div>
-      </StudentLayout>
+      </FacultyLayout>
     );
   }
 
   return (
-    <StudentLayout>
+    <FacultyLayout>
       <div className="px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">My Class Schedule</h1>
+            <h1 className="text-2xl font-bold text-gray-900">Teaching Schedule</h1>
             <p className="mt-1 text-sm text-gray-500">
-              View your timetable for courses you are enrolled in
+              View and manage your teaching schedule across all subjects
             </p>
           </div>
           <div className="mt-4 md:mt-0">
-            <Badge className="bg-blue-500 text-white font-medium py-1.5">
+            <Badge className="bg-indigo-500 text-white font-medium py-1.5">
               {new Date().toLocaleDateString(undefined, { 
                 weekday: 'long', 
                 year: 'numeric', 
@@ -177,21 +232,29 @@ export default function StudentSchedulePage() {
           </div>
         </div>
 
+        {error && (
+          <Card className="mb-6 border-red-200">
+            <CardContent className="p-4 text-red-700">
+              {error}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Today's Classes */}
         <Card className="mb-8">
-          <CardHeader className="pb-3 bg-gradient-to-r from-blue-50 to-cyan-50">
-            <CardTitle>Today's Classes</CardTitle>
+          <CardHeader className="pb-3 bg-gradient-to-r from-indigo-50 to-purple-50">
+            <CardTitle>Today's Teaching Schedule</CardTitle>
             <CardDescription>
-              Your schedule for {getCurrentDay()}
+              Your classes for {getCurrentDay()}
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
             {todaySchedules.length === 0 ? (
               <div className="text-center py-8 bg-gray-50 rounded-lg">
-                <CalendarDays className="mx-auto h-12 w-12 text-gray-400" />
+                <Calendar className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No Classes Today</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  Enjoy your free day or catch up on assignments!
+                  You don't have any teaching scheduled for today
                 </p>
               </div>
             ) : (
@@ -205,13 +268,13 @@ export default function StudentSchedulePage() {
                         status === 'current' 
                           ? 'border-l-green-500 bg-green-50/50' 
                           : status === 'upcoming' 
-                            ? 'border-l-blue-500' 
+                            ? 'border-l-indigo-500' 
                             : 'border-l-gray-300 bg-gray-50/50'
                       }`}
                     >
                       <CardContent className="p-4">
                         <div className="mb-1 flex items-center">
-                          <Badge className="bg-cyan-100 text-cyan-800 mr-2">{schedule.subjectCode}</Badge>
+                          <Badge className="bg-indigo-100 text-indigo-800 mr-2">{schedule.subjectCode}</Badge>
                           {status === 'current' && (
                             <Badge className="bg-green-500 text-white">
                               In Progress
@@ -237,13 +300,13 @@ export default function StudentSchedulePage() {
                           </div>
                           
                           <div className="flex items-center text-gray-700">
-                            <User className="h-4 w-4 mr-2 text-gray-500" />
-                            <span>{schedule.facultyName}</span>
+                            <Users className="h-4 w-4 mr-2 text-gray-500" />
+                            <span>{schedule.class}</span>
                           </div>
                         </div>
                         
                         {status === 'upcoming' && (
-                          <div className="mt-3 text-xs text-blue-700">
+                          <div className="mt-3 text-xs text-indigo-700">
                             Starting in {calculateTimeUntil(schedule.startTime)}
                           </div>
                         )}
@@ -259,9 +322,9 @@ export default function StudentSchedulePage() {
         {/* Weekly Schedule */}
         <Card>
           <CardHeader className="pb-3">
-            <CardTitle>Weekly Timetable</CardTitle>
+            <CardTitle>Weekly Teaching Timetable</CardTitle>
             <CardDescription>
-              Your class schedule for the entire week
+              Your complete teaching schedule for the week
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -300,13 +363,17 @@ export default function StudentSchedulePage() {
                           {schedulesByDay[day]
                             .sort((a, b) => a.startTime.localeCompare(b.startTime))
                             .map((schedule) => (
-                              <div key={schedule.id} className="py-3 first:pt-0 last:pb-0">
+                              <div key={schedule.id} className="py-4 first:pt-0 last:pb-0">
                                 <div className="flex justify-between items-start">
                                   <div className="flex-1">
-                                    <h4 className="font-medium text-gray-900">
-                                      {schedule.courseName}
-                                    </h4>
-                                    <div className="mt-1 grid grid-cols-2 gap-2 text-sm text-gray-500">
+                                    <div className="flex items-center">
+                                      <Badge className="bg-indigo-100 text-indigo-800 mr-2">{schedule.subjectCode}</Badge>
+                                      <h4 className="font-medium text-gray-900">
+                                        {schedule.subjectName || schedule.courseName}
+                                      </h4>
+                                    </div>
+                                    <p className="mt-1 text-sm text-gray-500">{schedule.courseName}</p>
+                                    <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2 text-sm text-gray-500">
                                       <div className="flex items-center">
                                         <Clock className="h-3.5 w-3.5 mr-1 text-gray-400" />
                                         <span>{formatTime(schedule.startTime)} - {formatTime(schedule.endTime)}</span>
@@ -316,8 +383,8 @@ export default function StudentSchedulePage() {
                                         <span>{schedule.roomName}</span>
                                       </div>
                                       <div className="flex items-center">
-                                        <User className="h-3.5 w-3.5 mr-1 text-gray-400" />
-                                        <span className="truncate">{schedule.facultyName}</span>
+                                        <Users className="h-3.5 w-3.5 mr-1 text-gray-400" />
+                                        <span className="truncate">{schedule.class}</span>
                                       </div>
                                     </div>
                                   </div>
@@ -326,7 +393,7 @@ export default function StudentSchedulePage() {
                                       variant="outline" 
                                       className="text-xs whitespace-nowrap"
                                     >
-                                      {calculateDuration(schedule.startTime, schedule.endTime)} hrs
+                                      {calculateDuration(schedule.startTime, schedule.endTime)}
                                     </Badge>
                                   </div>
                                 </div>
@@ -342,58 +409,6 @@ export default function StudentSchedulePage() {
           </CardContent>
         </Card>
       </div>
-    </StudentLayout>
+    </FacultyLayout>
   );
-}
-
-// Helper function to calculate time until class starts
-function calculateTimeUntil(startTime: string): string {
-  try {
-    const [hours, minutes] = startTime.split(':').map(Number);
-    const now = new Date();
-    const startDate = new Date();
-    startDate.setHours(hours, minutes, 0);
-    
-    // If start time is in the past for today, return empty string
-    if (now > startDate) return "";
-    
-    const diffMs = startDate.getTime() - now.getTime();
-    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-    const diffMinutes = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
-    
-    if (diffHours > 0) {
-      return `${diffHours}h ${diffMinutes}m`;
-    } else {
-      return `${diffMinutes} minutes`;
-    }
-  } catch (error) {
-    return "";
-  }
-}
-
-// Helper function to calculate class duration
-function calculateDuration(startTime: string, endTime: string): string {
-  try {
-    const [startHour, startMinute] = startTime.split(':').map(Number);
-    const [endHour, endMinute] = endTime.split(':').map(Number);
-    
-    // Calculate total minutes
-    const startMinutes = startHour * 60 + startMinute;
-    const endMinutes = endHour * 60 + endMinute;
-    const durationMinutes = endMinutes - startMinutes;
-    
-    // Convert to hours and minutes
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    
-    if (hours === 0) {
-      return `${minutes} min`;
-    } else if (minutes === 0) {
-      return `${hours}`;
-    } else {
-      return `${hours}.${Math.floor(minutes / 6)}`;  // Represent minutes as decimal (e.g., 1.5 hrs)
-    }
-  } catch (error) {
-    return "?";
-  }
 }

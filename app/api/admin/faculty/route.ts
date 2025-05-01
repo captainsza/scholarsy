@@ -20,65 +20,44 @@ export async function GET(req: NextRequest) {
       process.env.JWT_SECRET || 'your-secret-key'
     ) as { id: string, role: string };
     
-    if (decoded.role !== 'ADMIN') {
-      return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
+    // Check role-based access
+    if (!['ADMIN', 'FACULTY'].includes(decoded.role)) {
+      return NextResponse.json({ message: 'Insufficient permissions' }, { status: 403 });
     }
     
-    // Get search parameters
-    const searchParams = req.nextUrl.searchParams;
-    const departmentFilter = searchParams.get('department');
-    
-    // Build the query
-    const where: any = {};
-    if (departmentFilter && departmentFilter !== 'all') {
-      where.department = departmentFilter;
-    }
-    
-    // Fetch faculty with related info
-    const faculty = await prisma.faculty.findMany({
-      where,
+    // Get faculty list
+    const facultyList = await prisma.faculty.findMany({
       include: {
         user: {
-          select: {
-            id: true,
-            email: true,
-            role: true,
-            isApproved: true,
-            emailVerified: true,
-            createdAt: true,
-            profile: true,
-          },
-        },
-        subjects: {
-          select: {
-            id: true,
-            name: true,
-            code: true,
-          },
-        },
-        courses: {
-          select: {
-            id: true,
-            name: true,
-            branch: true,
-            semester: true,
-          },
-        },
+          include: {
+            profile: true
+          }
+        }
       },
       orderBy: {
         user: {
           profile: {
-            firstName: 'asc',
-          },
-        },
-      },
+            firstName: 'asc'
+          }
+        }
+      }
     });
+    
+    // Transform for frontend
+    const faculty = facultyList.map(f => ({
+      id: f.id,
+      name: f.user.profile 
+        ? `${f.user.profile.firstName} ${f.user.profile.lastName}` 
+        : `Faculty ID: ${f.id}`,
+      email: f.user.email,
+      department: f.department
+    }));
     
     return NextResponse.json({ faculty });
   } catch (error: any) {
     console.error('Faculty fetch error:', error);
     return NextResponse.json(
-      { message: 'Failed to fetch faculty' }, 
+      { message: 'Failed to fetch faculty list', error: error.message }, 
       { status: 500 }
     );
   } finally {

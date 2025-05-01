@@ -14,7 +14,9 @@ import {
   ChevronDown,
   ChevronUp,
   Pin,
-  BookOpen
+  BookOpen,
+  Paperclip,
+  Download
 } from "lucide-react";
 
 import {
@@ -35,6 +37,11 @@ interface Notice {
   isPublished: boolean;
   authorName: string;
   linkUrl?: string;
+  attachmentUrls: Array<{
+    url: string;
+    name: string;
+    type: string;
+  }>;
 }
 
 export default function StudentNoticesPage() {
@@ -268,6 +275,37 @@ function NoticeCard({
               dangerouslySetInnerHTML={{ __html: notice.content }} 
             />
             
+            {/* Display attachments if available */}
+            {notice.attachmentUrls && notice.attachmentUrls.length > 0 && (
+              <div className="mt-6 border-t pt-4">
+                <h3 className="font-semibold text-gray-900 mb-3 flex items-center text-sm">
+                  <Paperclip className="h-4 w-4 mr-2" />
+                  Attachments
+                </h3>
+                <div className="grid grid-cols-1 gap-2">
+                  {notice.attachmentUrls.map((attachment, index) => (
+                    <a
+                      key={index}
+                      href={attachment.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center p-2 border rounded-lg hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="bg-gray-100 h-8 w-8 flex items-center justify-center rounded mr-2 text-sm">
+                        {getFileIcon(attachment.type)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-gray-900 truncate">
+                          {attachment.name || `Attachment ${index + 1}`}
+                        </p>
+                      </div>
+                      <Download className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                    </a>
+                  ))}
+                </div>
+              </div>
+            )}
+            
             {notice.linkUrl && (
               <div className="mt-4 flex">
                 <a 
@@ -292,6 +330,15 @@ function NoticeCard({
               className="line-clamp-2 text-gray-600 text-sm" 
               dangerouslySetInnerHTML={{ __html: notice.content }} 
             />
+            
+            {/* Show attachment indicator */}
+            {notice.attachmentUrls && notice.attachmentUrls.length > 0 && (
+              <div className="flex items-center mt-1.5 text-xs text-gray-500">
+                <Paperclip className="h-3 w-3 mr-1" />
+                <span>{notice.attachmentUrls.length} attachment{notice.attachmentUrls.length !== 1 ? 's' : ''}</span>
+              </div>
+            )}
+            
             <button
               onClick={onToggleExpand}
               className="mt-2 text-sm text-blue-600 hover:text-blue-800"
@@ -303,4 +350,16 @@ function NoticeCard({
       </CardContent>
     </Card>
   );
+}
+
+// Helper to get file type icon
+function getFileIcon(fileType: string): string {
+  if (fileType.includes('image')) return '🖼️';
+  if (fileType.includes('pdf')) return '📄';
+  if (fileType.includes('word') || fileType.includes('document')) return '📝';
+  if (fileType.includes('excel') || fileType.includes('sheet')) return '📊';
+  if (fileType.includes('powerpoint') || fileType.includes('presentation')) return '📑';
+  if (fileType.includes('video')) return '🎬';
+  if (fileType.includes('audio')) return '🔊';
+  return '📎';
 }

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 import { cookies } from 'next/headers';
-import { getSessionUser } from '@/lib/session-utils'; // We'll create this utility
+import { getSessionUser } from '@/lib/session-utils';
 
 const prisma = new PrismaClient();
 
@@ -65,20 +65,19 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ message: 'Faculty record not found' }, { status: 404 });
     }
 
-    // Get subjects taught by this faculty
+    // Get subjects taught by this faculty - UPDATED to use course instead of section
     const subjects = await prisma.subject.findMany({
       where: { facultyId: faculty.id },
       include: {
-        section: {
+        course: {
           include: {
-            course: true,
             enrollments: {
               where: { status: 'ACTIVE' },
             },
             schedules: {
               include: { room: true },
-            },
-          },
+            }
+          }
         },
         assessments: true,
       },
@@ -89,33 +88,28 @@ export async function GET(req: NextRequest) {
     const coordinatedCourses = await prisma.course.findMany({
       where: { facultyId: faculty.id },
       include: {
-        sections: {
-          include: {
-            enrollments: {
-              where: { status: 'ACTIVE' },
-            },
-            subjects: true,
-          },
+        schedules: true,
+        enrollments: {
+          where: { status: 'ACTIVE' },
         },
+        subjects: true,
       },
     });
     console.log(`Retrieved ${coordinatedCourses.length} courses coordinated by faculty`);
 
-    // Calculate total students (unique across all sections)
+    // Calculate total students (unique across all subjects and courses)
     const studentIdMap = new Map();
     subjects.forEach(subject => {
-      if (subject.section?.enrollments) {
-        subject.section.enrollments.forEach(enrollment => {
+      if (subject.course?.enrollments) {
+        subject.course.enrollments.forEach(enrollment => {
           studentIdMap.set(enrollment.studentId, true);
         });
       }
     });
 
     coordinatedCourses.forEach(course => {
-      course.sections.forEach(section => {
-        section.enrollments.forEach(enrollment => {
-          studentIdMap.set(enrollment.studentId, true);
-        });
+      course.enrollments.forEach(enrollment => {
+        studentIdMap.set(enrollment.studentId, true);
       });
     });
 
@@ -181,7 +175,7 @@ export async function GET(req: NextRequest) {
     await Promise.all(assessments.map(async (assessment) => {
       // Get student count for this assessment's subject
       const subject = subjects.find(s => s.id === assessment.subjectId);
-      const studentCount = subject?.section?.enrollments?.length || 0;
+      const studentCount = subject?.course?.enrollments?.length || 0;
       
       // Get mark count for this assessment
       const markCount = await prisma.assessmentMark.count({
@@ -199,39 +193,64 @@ export async function GET(req: NextRequest) {
     }));
     console.log('Assessments with pending grades:', pendingGrades);
 
-    // Prepare course list data
+    // Prepare course list data - UPDATED to use course instead of section
     const courseList = subjects.map(subject => ({
       id: subject.id,
       code: subject.code,
       name: subject.name,
-      section: subject.section?.name || "N/A",
-      course: subject.section?.course?.name || "N/A",
-      studentsCount: subject.section?.enrollments?.length || 0,
+      course: subject.course?.name || "N/A",
+      studentsCount: subject.course?.enrollments?.length || 0,
     }));
 
-    // Get upcoming class schedules
+    // Get upcoming class schedules - UPDATED to use course schedules directly
     const today = new Date();
     const currentDayName = dayNames[today.getDay()];
     const currentHour = today.getHours();
     const currentMinute = today.getMinutes();
     console.log(`Current time: ${currentDayName} ${currentHour}:${currentMinute}`);
     
-    // Collect all schedules from all sections of subjects taught by faculty
-    const allSchedules = [];
+    // Define interface for schedule type
+    interface ExtendedSchedule {
+      id: string | number;
+      dayOfWeek: string;
+      startTime: string;
+      endTime: string;
+      room?: { name: string };
+      subjectName?: string;
+      subjectCode?: string;
+      courseName?: string;
+    }
     
-    for (const subject of subjects) {
-      if (subject.section?.schedules) {
-        for (const schedule of subject.section.schedules) {
-          // Add subject info to the schedule
+    // Collect all schedules from courses
+    const allSchedules: ExtendedSchedule[] = [];
+    
+    // Add schedules from courses where faculty teaches subjects
+    subjects.forEach(subject => {
+      if (subject.course?.schedules) {
+        subject.course.schedules.forEach(schedule => {
           allSchedules.push({
             ...schedule,
+            room: schedule.room ? { name: schedule.room.name } : undefined,
             subjectName: subject.name,
             subjectCode: subject.code,
-            sectionName: subject.section.name,
+            courseName: subject.course.name,
           });
-        }
+        });
       }
-    }
+    });
+    
+    // Add schedules from courses coordinated by faculty
+    coordinatedCourses.forEach(course => {
+      if (course.schedules) {
+        course.schedules.forEach(schedule => {
+          allSchedules.push({
+            ...schedule,
+            courseName: course.name,
+          });
+        });
+      }
+    });
+    
     console.log('Total schedules found:', allSchedules.length);
     
     // Filter and sort schedules
@@ -283,8 +302,7 @@ export async function GET(req: NextRequest) {
       .slice(0, 5) // Take the next 5 classes
       .map(schedule => ({
         id: schedule.id,
-        courseName: `${schedule.subjectCode}: ${schedule.subjectName}`,
-        sectionName: schedule.sectionName,
+        courseName: schedule.subjectName || schedule.courseName,
         roomName: schedule.room?.name || 'TBD',
         startTime: schedule.startTime,
         endTime: schedule.endTime,
