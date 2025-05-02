@@ -21,11 +21,17 @@ export const uploadToCloudinary = async (imageBase64: string, options = {}) => {
   }
 };
 
+// Define options interface
+interface UploadFileOptions {
+  originalFilename?: string;
+  [key: string]: any; // Allow any other properties
+}
+
 // Function to upload any file type to Cloudinary
-export const uploadFileToCloudinary = async (fileBase64: string, fileType: string, options = {}) => {
+export const uploadFileToCloudinary = async (fileBase64: string, fileType: string, options: UploadFileOptions = {}) => {
   try {
     // Determine resource type based on file extension
-    let resourceType = 'auto';
+    let resourceType: 'image' | 'video' | 'raw' | 'auto' = 'auto';
     if (fileType.includes('image')) {
       resourceType = 'image';
     } else if (fileType.includes('pdf') || fileType.includes('doc') || fileType.includes('xls') || fileType.includes('ppt')) {
