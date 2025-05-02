@@ -1,0 +1,1085 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScholarSync ERP Documentation</title>
+    <style>
+        :root {
+            --primary: #0ea5e9;
+            --primary-dark: #0284c7;
+            --secondary: #3b82f6;
+            --accent: #22d3ee;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --bg: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 70px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: var(--text);
+            background: var(--bg);
+            display: flex;
+        }
+
+        aside {
+            width: 280px;
+            height: 100vh;
+            background: var(--bg-card);
+            border-right: 1px solid var(--border);
+            padding: 1.5rem;
+            position: fixed;
+            overflow-y: auto;
+        }
+
+        .main-content {
+            margin-left: 280px;
+            padding: 2rem;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            margin-bottom: 2rem;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            display: block;
+            text-align: center;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        nav ul {
+            list-style: none;
+        }
+
+        nav ul li a {
+            display: block;
+            padding: 0.5rem 0;
+            text-decoration: none;
+            color: var(--text);
+            font-weight: 500;
+            transition: color 0.2s;
+        }
+
+        nav ul li a:hover {
+            color: var(--primary);
+        }
+
+        nav ul li ul {
+            padding-left: 1rem;
+        }
+
+        nav ul li ul li a {
+            font-weight: normal;
+            font-size: 0.95rem;
+        }
+
+        h1, h2, h3, h4, h5, h6 {
+            margin: 1.5rem 0 1rem;
+            font-weight: 600;
+            line-height: 1.2;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-top: 0;
+            position: relative;
+            padding-bottom: 0.5rem;
+        }
+
+        h1:after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100px;
+            height: 4px;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            border-radius: 2px;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 0.5rem;
+            margin-top: 2.5rem;
+        }
+
+        h3 {
+            font-size: 1.4rem;
+            color: var(--primary-dark);
+        }
+
+        h4 {
+            font-size: 1.2rem;
+        }
+
+        p, ul, ol {
+            margin-bottom: 1.5rem;
+        }
+
+        ul, ol {
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #f1f5f9;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+        }
+
+        pre {
+            background-color: #0f172a;
+            color: #e2e8f0;
+            padding: 1rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+        }
+
+        pre code {
+            background: transparent;
+            padding: 0;
+            color: inherit;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .note {
+            background-color: rgba(14, 165, 233, 0.1);
+            border-left: 4px solid var(--primary);
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        .warning {
+            background-color: rgba(234, 179, 8, 0.1);
+            border-left: 4px solid #eab308;
+            padding: 1rem;
+            margin: 1.5rem 0;
+            border-radius: 4px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border);
+        }
+
+        th {
+            background-color: #f1f5f9;
+            font-weight: 600;
+        }
+
+        tr:hover {
+            background-color: #f8fafc;
+        }
+
+        img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 8px;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .tech-item {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+        }
+
+        .tech-icon {
+            width: 60px;
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f1f5f9;
+            border-radius: 50%;
+            margin-bottom: 0.75rem;
+            font-size: 1.5rem;
+        }
+
+        .features {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin: 1.5rem 0;
+        }
+
+        .feature-item {
+            background: var(--bg-card);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            padding: 1.5rem;
+            border-top: 3px solid var(--primary);
+        }
+
+        footer {
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            text-align: center;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            body {
+                flex-direction: column;
+            }
+            
+            aside {
+                width: 100%;
+                height: auto;
+                position: relative;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            
+            .main-content {
+                margin-left: 0;
+                padding: 1.5rem;
+            }
+            
+            .tech-stack, .features {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <aside>
+        <div class="logo">ScholarSync</div>
+        <nav>
+            <ul>
+                <li><a href="#introduction">Introduction</a></li>
+                <li><a href="#tech-stack">Tech Stack</a></li>
+                <li>
+                    <a href="#architecture">System Architecture</a>
+                    <ul>
+                        <li><a href="#frontend-architecture">Frontend</a></li>
+                        <li><a href="#backend-architecture">Backend</a></li>
+                        <li><a href="#database-schema">Database Schema</a></li>
+                    </ul>
+                </li>
+                <li>
+                    <a href="#features">Features</a>
+                    <ul>
+                        <li><a href="#admin-features">Admin Module</a></li>
+                        <li><a href="#faculty-features">Faculty Module</a></li>
+                        <li><a href="#student-features">Student Module</a></li>
+                    </ul>
+                </li>
+                <li><a href="#authentication">Authentication & Security</a></li>
+                <li><a href="#file-management">File Management</a></li>
+                <li><a href="#workflows">Key Workflows</a></li>
+                <li><a href="#api">API Documentation</a></li>
+                <li><a href="#deployment">Deployment</a></li>
+                <li><a href="#future-enhancements">Future Enhancements</a></li>
+                <li><a href="#conclusion">Conclusion</a></li>
+            </ul>
+        </nav>
+    </aside>
+
+    <main class="main-content">
+        <section id="introduction">
+            <h1>ScholarSync ERP System Documentation</h1>
+            
+            <div class="card">
+                <p>ScholarSync is a comprehensive Education Resource Planning (ERP) system designed to streamline academic management processes. It provides an integrated platform for administrators, faculty members, and students to interact with educational resources, manage academic activities, and access institutional information.</p>
+                
+                <p>This documentation provides an in-depth overview of the ScholarSync ERP system, including its architecture, features, security measures, and implementation details.</p>
+            </div>
+
+            <h3>Project Overview</h3>
+            <p>ScholarSync was developed as a final year project to address the challenges faced by educational institutions in managing their academic operations. The system aims to replace traditional paper-based processes with a digital solution that enhances efficiency, transparency, and accessibility.</p>
+
+            <h3>Key Objectives</h3>
+            <ul>
+                <li>Streamline administrative processes</li>
+                <li>Facilitate better communication between faculty and students</li>
+                <li>Provide easy access to academic resources</li>
+                <li>Enable efficient management of courses, schedules, and assessments</li>
+                <li>Implement role-based access controls for secure data management</li>
+                <li>Support real-time tracking of academic progress</li>
+            </ul>
+        </section>
+
+        <section id="tech-stack">
+            <h2>Tech Stack</h2>
+            <p>ScholarSync is built using modern web technologies and follows a full-stack JavaScript approach. The primary technologies used in the project are:</p>
+
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <div class="tech-icon">🔵</div>
+                    <h4>Next.js</h4>
+                    <p>React framework for server-side rendering and API routes</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">⚛️</div>
+                    <h4>React</h4>
+                    <p>JavaScript library for building user interfaces</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🔷</div>
+                    <h4>TypeScript</h4>
+                    <p>Type-safe programming language for JavaScript</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🎨</div>
+                    <h4>Tailwind CSS</h4>
+                    <p>Utility-first CSS framework</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🔋</div>
+                    <h4>Prisma</h4>
+                    <p>Next-generation ORM for Node.js</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">🔐</div>
+                    <h4>JWT</h4>
+                    <p>JSON Web Tokens for authentication</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">💾</div>
+                    <h4>PostgreSQL</h4>
+                    <p>Relational database system</p>
+                </div>
+                <div class="tech-item">
+                    <div class="tech-icon">☁️</div>
+                    <h4>Cloudinary</h4>
+                    <p>Cloud-based image and file management</p>
+                </div>
+            </div>
+
+            <h3>Frontend Libraries</h3>
+            <ul>
+                <li><strong>Framer Motion</strong> - Animation library for React</li>
+                <li><strong>Lucide React</strong> - Icon library</li>
+                <li><strong>date-fns</strong> - Date utility library</li>
+                <li><strong>shadcn/ui</strong> - UI component library (Custom components based on Radix UI)</li>
+            </ul>
+
+            <h3>Backend & Infrastructure</h3>
+            <ul>
+                <li><strong>Next.js API Routes</strong> - Serverless functions for backend logic</li>
+                <li><strong>NextAuth.js</strong> - Authentication framework for Next.js</li>
+                <li><strong>Vercel</strong> - Deployment platform</li>
+            </ul>
+
+            <h3>Development Tools</h3>
+            <ul>
+                <li><strong>ESLint</strong> - JavaScript linting utility</li>
+                <li><strong>Prettier</strong> - Code formatter</li>
+                <li><strong>npm</strong> - Package manager</li>
+                <li><strong>Git</strong> - Version control</li>
+            </ul>
+        </section>
+
+        <section id="architecture">
+            <h2>System Architecture</h2>
+            <p>ScholarSync follows a modern web application architecture with a clear separation of concerns. The system is built using the Next.js framework, which provides both client and server-side capabilities.</p>
+
+            <div class="card">
+                <h3 id="frontend-architecture">Frontend Architecture</h3>
+                <p>The frontend of ScholarSync is built with React and follows a component-based architecture. Key aspects include:</p>
+                <ul>
+                    <li><strong>Component Organization:</strong> UI components are structured in the <code>/components</code> directory, organized by function and module.</li>
+                    <li><strong>Pages:</strong> Each page is defined in the <code>/app</code> directory following Next.js 13+ App Router convention.</li>
+                    <li><strong>Context API:</strong> React Context is used for global state management, particularly for authentication via <code>AuthContext</code>.</li>
+                    <li><strong>Client-Side Routing:</strong> Next.js provides client-side routing for smooth navigation between pages.</li>
+                    <li><strong>Responsive Design:</strong> The UI is fully responsive and adapts to various screen sizes using Tailwind CSS.</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 id="backend-architecture">Backend Architecture</h3>
+                <p>The backend is implemented using Next.js API routes, which provide serverless functions for handling requests. Key aspects include:</p>
+                <ul>
+                    <li><strong>API Routes:</strong> Located in <code>/app/api</code> directory, providing RESTful endpoints for client interactions.</li>
+                    <li><strong>Data Access Layer:</strong> Prisma ORM is used for database interactions, providing type-safe queries.</li>
+                    <li><strong>Authentication:</strong> JWT-based authentication for securing endpoints.</li>
+                    <li><strong>File Storage:</strong> Integration with Cloudinary for file uploads and storage.</li>
+                    <li><strong>Route Protection:</strong> Middleware for route protection based on user roles and authentication status.</li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h3 id="database-schema">Database Schema</h3>
+                <p>The database schema is defined using Prisma schema language and includes the following key models:</p>
+                <pre><code>// Main User models
+model User {
+  id          String    @id @default(uuid())
+  email       String    @unique
+  password    String
+  role        Role      @default(STUDENT)
+  isApproved  Boolean   @default(false)
+  isActive    Boolean   @default(true)
+  emailVerified Boolean @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  
+  // Relations
+  profile     Profile?
+  student     Student?
+  faculty     Faculty?
+  // Other relations
+}
+
+model Profile {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  firstName   String
+  lastName    String
+  gender      String?
+  dateOfBirth DateTime?
+  phoneNumber String?
+  address     String?
+  city        String?
+  state       String?
+  country     String?
+  postalCode  String?
+  avatarUrl   String?
+  
+  // Relation to User
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Student {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  enrollmentId  String   @unique
+  department    String
+  currentSemester String?
+  enrollmentDate DateTime @default(now())
+  graduationDate DateTime?
+  status        String   @default("ACTIVE")
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseEnrollments CourseEnrollment[]
+  // Other student-specific relations
+}
+
+model Faculty {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  department    String
+  position      String?
+  joinDate      DateTime @default(now())
+  
+  // Relations
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courses       Course[]
+  subjects      Subject[]
+  // Other faculty-specific relations
+}
+
+// Academic models
+model Course {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  description   String?
+  department    String
+  credits       Int
+  // Other course fields and relations
+}
+
+model Subject {
+  id            String   @id @default(uuid())
+  name          String
+  code          String
+  description   String?
+  courseId      String
+  credits       Int
+  
+  // Relations
+  course        Course   @relation(fields: [courseId], references: [id])
+  faculty       Faculty? @relation(fields: [facultyId], references: [id])
+  facultyId     String?
+  // Other subject relations
+}
+
+model Assessment {
+  id            String   @id @default(uuid())
+  title         String
+  type          AssessmentType
+  subjectId     String
+  dueDate       DateTime?
+  maxMarks      Float
+  weightage     Float
+  instructions  String?
+  attachmentUrl String?
+  createdAt     DateTime @default(now())
+  
+  // Relations and other fields
+}
+
+// Other models for schedule, attendance, notices, etc.
+</code></pre>
+
+                <p>The schema design focuses on maintaining proper relationships between entities while ensuring data integrity and normalization.</p>
+            </div>
+
+            <h3>System Workflow</h3>
+            <p>The overall system workflow follows these general steps:</p>
+            <ol>
+                <li>User authentication and role-based access control</li>
+                <li>Data fetching from API routes based on user permissions</li>
+                <li>State management for UI rendering and user interactions</li>
+                <li>Form submissions and data mutations through API endpoints</li>
+                <li>Real-time updates and notifications for relevant users</li>
+            </ol>
+        </section>
+
+        <section id="features">
+            <h2>Features</h2>
+            <p>ScholarSync offers a comprehensive set of features organized into different modules based on user roles.</p>
+
+            <div class="features">
+                <div class="feature-item">
+                    <h3 id="admin-features">Admin Module</h3>
+                    <ul>
+                        <li><strong>Dashboard:</strong> Overview with key metrics and recent activities</li>
+                        <li><strong>User Management:</strong> Create, edit, and manage all user accounts</li>
+                        <li><strong>Faculty Management:</strong> Assign departments, subjects, and track faculty workload</li>
+                        <li><strong>Student Management:</strong> Manage student records, enrollments, and academic progress</li>
+                        <li><strong>Course Management:</strong> Create and manage courses, subjects, and academic programs</li>
+                        <li><strong>Schedule Management:</strong> Create and manage class schedules</li>
+                        <li><strong>Notice Management:</strong> Publish and manage announcements</li>
+                    </ul>
+                </div>
+
+                <div class="feature-item">
+                    <h3 id="faculty-features">Faculty Module</h3>
+                    <ul>
+                        <li><strong>Dashboard:</strong> Faculty-specific metrics and schedules</li>
+                        <li><strong>Course Management:</strong> View and manage assigned courses</li>
+                        <li><strong>Assessment Management:</strong> Create, assign, and grade assessments</li>
+                        <li><strong>Attendance Management:</strong> Track student attendance for courses</li>
+                        <li><strong>Grade Management:</strong> Record and manage student grades</li>
+                        <li><strong>Schedule Viewing:</strong> Access teaching schedules</li>
+                        <li><strong>Profile Management:</strong> Update personal and professional information</li>
+                    </ul>
+                </div>
+
+                <div class="feature-item">
+                    <h3 id="student-features">Student Module</h3>
+                    <ul>
+                        <li><strong>Dashboard:</strong> Student overview with upcoming assignments and events</li>
+                        <li><strong>Course Viewing:</strong> Access enrolled courses and materials</li>
+                        <li><strong>Assignment Management:</strong> View, submit, and track assignments</li>
+                        <li><strong>Grade Viewing:</strong> Access and track academic performance</li>
+                        <li><strong>Attendance Tracking:</strong> Monitor personal attendance records</li>
+                        <li><strong>Schedule Viewing:</strong> Access class schedules</li>
+                        <li><strong>Profile Management:</strong> Update personal information</li>
+                    </ul>
+                </div>
+            </div>
+
+            <h3>Cross-Module Features</h3>
+            <ul>
+                <li><strong>Authentication:</strong> Secure login, logout, password reset, and email verification</li>
+                <li><strong>Notifications:</strong> System-wide notifications for important events</li>
+                <li><strong>File Management:</strong> Upload, download, and manage various file types</li>
+                <li><strong>Search and Filtering:</strong> Advanced search and filtering capabilities throughout the system</li>
+                <li><strong>Responsive Design:</strong> Mobile-friendly interface for access on various devices</li>
+            </ul>
+        </section>
+
+        <section id="authentication">
+            <h2>Authentication & Security</h2>
+            <p>ScholarSync implements comprehensive security measures to protect user data and ensure appropriate access controls.</p>
+
+            <h3>Authentication Flow</h3>
+            <ol>
+                <li><strong>Registration:</strong> Users register with email and password</li>
+                <li><strong>Email Verification:</strong> Verification link sent to user's email</li>
+                <li><strong>Admin Approval:</strong> Admin approves new user accounts</li>
+                <li><strong>Login:</strong> JWT-based authentication with secure tokens</li>
+                <li><strong>Role-Based Access:</strong> Different UI and permissions based on user role</li>
+            </ol>
+
+            <h3>Security Measures</h3>
+            <ul>
+                <li><strong>Password Security:</strong> Passwords are hashed before storage</li>
+                <li><strong>JWT Authentication:</strong> Secure, expiring tokens for session management</li>
+                <li><strong>HTTPS:</strong> All communications encrypted via HTTPS</li>
+                <li><strong>API Protection:</strong> Server-side validation and authorization checks for all API endpoints</li>
+                <li><strong>CORS Policies:</strong> Properly configured Cross-Origin Resource Sharing</li>
+                <li><strong>Input Validation:</strong> Comprehensive validation for all user inputs</li>
+                <li><strong>Rate Limiting:</strong> Protection against brute force attacks</li>
+            </ul>
+
+            <div class="note">
+                <h4>Auth Context Implementation</h4>
+                <p>The system uses a centralized AuthContext for managing authentication state and providing authentication-related functions throughout the application:</p>
+                <pre><code>// AuthContext manages authentication state and provides login, logout, and other auth-related functions
+const AuthContext = createContext({
+  user: null,
+  loading: true,
+  login: async (email, password) => {},
+  logout: async () => {},
+  register: async (userData) => {},
+  resetPassword: async (token, password) => {},
+  // Other auth-related functions
+});</code></pre>
+            </div>
+        </section>
+
+        <section id="file-management">
+            <h2>File Management</h2>
+            <p>ScholarSync includes a robust file management system that allows users to upload, download, and manage various types of files.</p>
+
+            <h3>Key Features</h3>
+            <ul>
+                <li><strong>Multiple File Types:</strong> Support for documents, images, presentations, spreadsheets, etc.</li>
+                <li><strong>Cloud Storage:</strong> Files are stored in Cloudinary for reliable access</li>
+                <li><strong>Secure Downloads:</strong> File downloads maintain original file extensions</li>
+                <li><strong>File Size Limits:</strong> Appropriate limits to prevent abuse</li>
+                <li><strong>Assignment Attachments:</strong> Faculty and students can attach files to assignments</li>
+                <li><strong>Notice Attachments:</strong> Administrators can attach files to notices</li>
+            </ul>
+
+            <h3>Implementation Details</h3>
+            <p>Files are handled using Cloudinary's Node.js SDK. The implementation includes:</p>
+            <pre><code>// Example of file upload utility
+export const uploadToCloudinary = async (
+  fileDataUri: string,
+  fileName = 'file',
+  folder = 'scholarsync'
+): Promise<CloudinaryUploadResult> => {
+  try {
+    // Upload to Cloudinary
+    const result = await cloudinary.uploader.upload(fileDataUri, {
+      resource_type: 'auto',
+      folder,
+      public_id: `${fileName}_${Date.now()}`,
+      transformation: [
+        { quality: 'auto' }
+      ]
+    });
+    
+    return {
+      public_id: result.public_id,
+      secure_url: result.secure_url
+    };
+  } catch (error) {
+    console.error('Cloudinary upload failed:', error);
+    throw new Error('Failed to upload file');
+  }
+};</code></pre>
+
+            <p>For downloading files, the system ensures that the correct file extension is maintained:</p>
+            <pre><code>// File download utility that preserves file extensions
+const downloadFile = async (url: string, fallbackName: string) => {
+  try {
+    // Get the filename from the URL
+    const urlParts = url.split('/');
+    let filename = urlParts[urlParts.length - 1];
+    
+    // Decode URL encoded characters
+    filename = decodeURIComponent(filename);
+    
+    // If filename doesn't have extension or has query parameters, use fallback
+    if (!filename.includes('.') || filename.includes('?')) {
+      filename = fallbackName;
+    }
+    
+    // Trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.target = "_blank";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  } catch (error) {
+    console.error("Error downloading file:", error);
+  }
+};</code></pre>
+        </section>
+
+        <section id="workflows">
+            <h2>Key Workflows</h2>
+            <p>ScholarSync implements several key workflows that facilitate educational management processes.</p>
+
+            <h3>Student Enrollment Workflow</h3>
+            <ol>
+                <li>Admin creates a new course in the system</li>
+                <li>Admin adds subjects to the course</li>
+                <li>Admin enrolls students in the course</li>
+                <li>System assigns the enrolled courses to student accounts</li>
+                <li>Students can access their enrolled courses</li>
+            </ol>
+
+            <h3>Assignment Submission Workflow</h3>
+            <ol>
+                <li>Faculty creates an assessment with a due date</li>
+                <li>Students receive notification of the new assignment</li>
+                <li>Students submit their work before the deadline</li>
+                <li>Faculty reviews submissions and provides grades/feedback</li>
+                <li>Students receive notification of graded assignments</li>
+                <li>Students can view their grades and feedback</li>
+            </ol>
+
+            <h3>Attendance Management Workflow</h3>
+            <ol>
+                <li>Faculty accesses the attendance module for a specific class session</li>
+                <li>System displays enrolled students for the class</li>
+                <li>Faculty marks present/absent status for each student</li>
+                <li>System stores attendance records</li>
+                <li>Students can view their attendance statistics</li>
+                <li>Admin can generate attendance reports</li>
+            </ol>
+
+            <h3>Notice Publication Workflow</h3>
+            <ol>
+                <li>Admin or faculty creates a notice with relevant information</li>
+                <li>Optional: Attaches files to the notice</li>
+                <li>Sets the target audience (all, department, specific courses)</li>
+                <li>Publishes the notice</li>
+                <li>Target users see the notice in their dashboard</li>
+            </ol>
+        </section>
+
+        <section id="api">
+            <h2>API Documentation</h2>
+            <p>ScholarSync's backend is implemented using Next.js API routes. Below is a summary of the main API endpoints by module:</p>
+
+            <h3>Authentication APIs</h3>
+            <table>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>/api/auth/login</td>
+                    <td>POST</td>
+                    <td>Authenticate user and return JWT</td>
+                </tr>
+                <tr>
+                    <td>/api/auth/register</td>
+                    <td>POST</td>
+                    <td>Register new user</td>
+                </tr>
+                <tr>
+                    <td>/api/auth/logout</td>
+                    <td>POST</td>
+                    <td>Invalidate user session</td>
+                </tr>
+                <tr>
+                    <td>/api/auth/verify-email</td>
+                    <td>GET</td>
+                    <td>Verify user email address</td>
+                </tr>
+                <tr>
+                    <td>/api/auth/forgot-password</td>
+                    <td>POST</td>
+                    <td>Initiate password reset</td>
+                </tr>
+                <tr>
+                    <td>/api/auth/reset-password</td>
+                    <td>POST</td>
+                    <td>Reset user password</td>
+                </tr>
+            </table>
+
+            <h3>Admin APIs</h3>
+            <table>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>/api/admin/dashboard</td>
+                    <td>GET</td>
+                    <td>Get admin dashboard data</td>
+                </tr>
+                <tr>
+                    <td>/api/admin/users</td>
+                    <td>GET/POST</td>
+                    <td>Manage users</td>
+                </tr>
+                <tr>
+                    <td>/api/admin/faculty</td>
+                    <td>GET/POST</td>
+                    <td>Manage faculty</td>
+                </tr>
+                <tr>
+                    <td>/api/admin/students</td>
+                    <td>GET/POST</td>
+                    <td>Manage students</td>
+                </tr>
+                <tr>
+                    <td>/api/admin/courses</td>
+                    <td>GET/POST</td>
+                    <td>Manage courses</td>
+                </tr>
+                <tr>
+                    <td>/api/admin/notices</td>
+                    <td>GET/POST</td>
+                    <td>Manage notices</td>
+                </tr>
+            </table>
+
+            <h3>Faculty APIs</h3>
+            <table>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>/api/faculty/dashboard</td>
+                    <td>GET</td>
+                    <td>Get faculty dashboard data</td>
+                </tr>
+                <tr>
+                    <td>/api/faculty/courses</td>
+                    <td>GET</td>
+                    <td>Get faculty courses</td>
+                </tr>
+                <tr>
+                    <td>/api/faculty/assessments</td>
+                    <td>GET/POST</td>
+                    <td>Manage assessments</td>
+                </tr>
+                <tr>
+                    <td>/api/faculty/attendance</td>
+                    <td>GET/POST</td>
+                    <td>Manage attendance</td>
+                </tr>
+                <tr>
+                    <td>/api/faculty/grades</td>
+                    <td>GET/POST</td>
+                    <td>Manage grades</td>
+                </tr>
+            </table>
+
+            <h3>Student APIs</h3>
+            <table>
+                <tr>
+                    <th>Endpoint</th>
+                    <th>Method</th>
+                    <th>Description</th>
+                </tr>
+                <tr>
+                    <td>/api/student/dashboard</td>
+                    <td>GET</td>
+                    <td>Get student dashboard data</td>
+                </tr>
+                <tr>
+                    <td>/api/student/courses</td>
+                    <td>GET</td>
+                    <td>Get enrolled courses</td>
+                </tr>
+                <tr>
+                    <td>/api/student/assessments</td>
+                    <td>GET</td>
+                    <td>Get assigned assessments</td>
+                </tr>
+                <tr>
+                    <td>/api/student/assessments/submit</td>
+                    <td>POST</td>
+                    <td>Submit assessment</td>
+                </tr>
+                <tr>
+                    <td>/api/student/grades</td>
+                    <td>GET</td>
+                    <td>Get grades</td>
+                </tr>
+                <tr>
+                    <td>/api/student/attendance</td>
+                    <td>GET</td>
+                    <td>Get attendance records</td>
+                </tr>
+                <tr>
+                    <td>/api/student/notices</td>
+                    <td>GET</td>
+                    <td>Get notices for student</td>
+                </tr>
+            </table>
+        </section>
+
+        <section id="deployment">
+            <h2>Deployment</h2>
+            <p>ScholarSync is designed for deployment on modern cloud platforms. The recommended deployment strategy is:</p>
+
+            <h3>Hosting Platform</h3>
+            <p>The application is optimized for deployment on <strong>Vercel</strong>, which provides seamless integration with Next.js projects. Alternative platforms include:</p>
+            <ul>
+                <li>Netlify (with serverless functions)</li>
+                <li>AWS Amplify</li>
+                <li>Google Cloud Run</li>
+                <li>Azure Static Web Apps</li>
+            </ul>
+
+            <h3>Database Hosting</h3>
+            <p>The recommended database hosting options are:</p>
+            <ul>
+                <li>Supabase (PostgreSQL)</li>
+                <li>Neon (PostgreSQL)</li>
+                <li>PlanetScale (MySQL)</li>
+                <li>MongoDB Atlas (if switching to MongoDB)</li>
+            </ul>
+
+            <h3>Environment Variables</h3>
+            <p>The following environment variables need to be configured:</p>
+            <pre><code># Database
+DATABASE_URL="postgresql://user:password@localhost:5432/scholarsync"
+
+# JWT
+JWT_SECRET="your-secret-key"
+JWT_EXPIRES_IN="7d"
+
+# Cloudinary
+CLOUDINARY_CLOUD_NAME="your-cloud-name"
+CLOUDINARY_API_KEY="your-api-key"
+CLOUDINARY_API_SECRET="your-api-secret"
+
+# Email (for verification and password reset)
+EMAIL_SERVER_HOST="smtp.example.com"
+EMAIL_SERVER_PORT=587
+EMAIL_SERVER_USER="your-email"
+EMAIL_SERVER_PASSWORD="your-password"
+EMAIL_FROM="noreply@scholarsync.com"
+
+# Application
+NEXT_PUBLIC_APP_URL="https://your-domain.com"</code></pre>
+
+            <h3>Deployment Steps</h3>
+            <ol>
+                <li>Set up a GitHub repository for the project</li>
+                <li>Connect the repository to Vercel</li>
+                <li>Configure environment variables in Vercel dashboard</li>
+                <li>Deploy the application</li>
+                <li>Set up a database instance and connect it to the application</li>
+                <li>Run database migrations</li>
+                <li>Set up Cloudinary account and configure it</li>
+                <li>Test the deployed application</li>
+            </ol>
+        </section>
+
+        <section id="future-enhancements">
+            <h2>Future Enhancements</h2>
+            <p>ScholarSync has several potential areas for enhancement and expansion:</p>
+
+            <h3>Technical Enhancements</h3>
+            <ul>
+                <li><strong>Real-time Features:</strong> Implement WebSocket connections for real-time notifications and updates</li>
+                <li><strong>Progressive Web App (PWA):</strong> Add PWA capabilities for offline access</li>
+                <li><strong>Performance Optimization:</strong> Implement code splitting, image optimization, and caching strategies</li>
+                <li><strong>Testing:</strong> Add comprehensive unit and integration tests</li>
+                <li><strong>Analytics:</strong> Implement event tracking and analytics</li>
+                <li><strong>Mobile Apps:</strong> Develop native mobile applications for iOS and Android</li>
+            </ul>
+
+            <h3>Feature Enhancements</h3>
+            <ul>
+                <li><strong>Advanced Analytics Dashboard:</strong> Enhanced data visualization for academic performance</li>
+                <li><strong>Parent Portal:</strong> Add access for parents/guardians to monitor student progress</li>
+                <li><strong>Online Examination System:</strong> Add secure online exam functionality</li>
+                <li><strong>Learning Management System (LMS) Integration:</strong> Integrate with popular LMS platforms</li>
+                <li><strong>Payment Gateway:</strong> Add fee payment and financial management features</li>
+                <li><strong>Feedback System:</strong> Implement course and faculty evaluation system</li>
+                <li><strong>Mobile Notifications:</strong> Add push notifications for mobile devices</li>
+            </ul>
+        </section>
+
+        <section id="conclusion">
+            <h2>Conclusion</h2>
+            <p>ScholarSync represents a comprehensive solution for educational institutions seeking to modernize their administrative processes and enhance communication between administrators, faculty, and students. The system leverages modern web technologies to provide a user-friendly interface and robust functionality.</p>
+
+            <p>Key achievements of the project include:</p>
+            <ul>
+                <li>Implementation of a role-based access control system</li>
+                <li>Development of specialized modules for different user types</li>
+                <li>Integration of file management capabilities</li>
+                <li>Creation of a responsive, mobile-friendly interface</li>
+                <li>Implementation of secure authentication and data protection measures</li>
+            </ul>
+
+            <p>ScholarSync demonstrates how modern web technologies can be applied to create practical solutions for educational management challenges. The system's modular architecture allows for future expansion and customization to meet evolving needs of educational institutions.</p>
+
+            <div class="card">
+                <h3>Project Information</h3>
+                <ul>
+                    <li><strong>Project Name:</strong> ScholarSync</li>
+                    <li><strong>Type:</strong> Education Resource Planning (ERP) System</li>
+                    <li><strong>Purpose:</strong> Final Year Project</li>
+                    <li><strong>Developed By:</strong> [Your Name]</li>
+                    <li><strong>Year:</strong> 2023</li>
+                </ul>
+            </div>
+        </section>
+
+        <footer>
+            <p>&copy; 2023 ScholarSync ERP System Documentation</p>
+            <p>Created as part of a final year project</p>
+        </footer>
+    </main>
+</body>
+</html>
