@@ -15,6 +15,7 @@ import {
   Calendar,
   AlertCircle
 } from "lucide-react";
+import UpcomingAssignments from "@/components/student/UpcomingAssignments";
 
 // Define proper types
 interface Course {
@@ -62,6 +63,7 @@ interface StudentDashboardData {
   attendance: AttendanceSummary[];
   assignments: Assignment[];
   grades: Grade[];
+  upcomingAssignments?: Assignment[];
 }
 
 // StatCard component
@@ -170,50 +172,6 @@ function AttendanceChart({ data }: { data: AttendanceSummary[] }) {
               <div>Late: {item.late}</div>
             </div>
           </div>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-// UpcomingAssignments component
-function UpcomingAssignments({ assignments }: { assignments: Assignment[] }) {
-  if (assignments.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center text-center p-6 text-gray-500">
-        <FileText className="h-12 w-12 text-gray-400 mb-2" />
-        <p>No upcoming assignments</p>
-      </div>
-    );
-  }
-
-  const statusColors: Record<string, string> = {
-    pending: "bg-yellow-100 text-yellow-800",
-    submitted: "bg-blue-100 text-blue-800",
-    graded: "bg-green-100 text-green-800"
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', { 
-      month: 'short', 
-      day: 'numeric',
-      year: 'numeric'
-    }).format(date);
-  };
-
-  return (
-    <div className="space-y-4">
-      {assignments.map((assignment) => (
-        <div key={assignment.id} className="p-4 bg-gray-50 rounded-lg">
-          <div className="flex justify-between">
-            <div className="text-sm font-medium text-gray-900">{assignment.title}</div>
-            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium ${statusColors[assignment.status]}`}>
-              {assignment.status.charAt(0).toUpperCase() + assignment.status.slice(1)}
-            </span>
-          </div>
-          <div className="mt-1 text-xs text-gray-500">{assignment.courseCode} - {assignment.courseName}</div>
-          <div className="mt-2 text-xs font-medium">Due: {formatDate(assignment.dueDate)}</div>
         </div>
       ))}
     </div>
@@ -369,7 +327,7 @@ export default function StudentDashboard() {
 
   return (
     <StudentLayout>
-      <div className="px-4 sm:px-6 lg:px-8 py-8">
+      <div className="py-6 px-4 sm:px-6 lg:px-8">
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-gray-900">Student Dashboard</h1>
           {user?.student && (
@@ -379,82 +337,61 @@ export default function StudentDashboard() {
           )}
         </div>
         
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <StatCard
-            title="Enrolled Courses"
-            value={dashboardData?.enrolledCourses || 0}
-            icon="book-open"
-            color="blue"
-          />
-          <StatCard
-            title="Attendance"
-            value={dashboardData?.attendancePercentage || 0}
-            icon="clipboard-check"
-            color="green"
-            suffix="%"
-          />
-          <StatCard
-            title="Pending Assignments"
-            value={dashboardData?.pendingAssignments || 0}
-            icon="document-text"
-            color="yellow"
-          />
-          <StatCard
-            title="Avg. Grade Point"
-            value={dashboardData?.avgGrade || 0}
-            icon="academic-cap"
-            color="indigo"
-          />
-        </div>
-
-        {/* My Courses */}
-        <Card className="mb-8">
-          <CardHeader className="pb-2">
-            <CardTitle>My Courses</CardTitle>
-            <CardDescription>Your enrolled courses for the current semester</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {dashboardData?.courses && dashboardData.courses.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                {dashboardData.courses.map(course => (
-                  <CourseCard key={course.id} course={course} />
-                ))}
-              </div>
-            ) : (
-              <div className="text-center py-10 text-gray-500">
-                <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-400" />
-                <p>No enrolled courses</p>
-              </div>
+        {/* Main Dashboard Content */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* Left column - Course cards */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card className="mb-8">
+              <CardHeader className="pb-2">
+                <CardTitle>My Courses</CardTitle>
+                <CardDescription>Your enrolled courses for the current semester</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {dashboardData?.courses && dashboardData.courses.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {dashboardData.courses.map(course => (
+                      <CourseCard key={course.id} course={course} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-10 text-gray-500">
+                    <BookOpen className="h-10 w-10 mx-auto mb-2 text-gray-400" />
+                    <p>No enrolled courses</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Right column - Stats and upcoming stuff */}
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Attendance Summary</CardTitle>
+                <CardDescription>Your attendance records for current courses</CardDescription>
+              </CardHeader>
+              <CardContent className="pt-4">
+                <AttendanceChart data={dashboardData?.attendance || []} />
+              </CardContent>
+            </Card>
+            
+            {/* Use the imported UpcomingAssignments component */}
+            {dashboardData?.upcomingAssignments && (
+              <UpcomingAssignments 
+                assignments={dashboardData.upcomingAssignments.map(assignment => ({
+                  id: assignment.id,
+                  title: assignment.title,
+                  type: assignment.status || "ASSIGNMENT", // Provide default type if missing
+                  dueDate: assignment.dueDate,
+                  subjectName: assignment.courseName || "",
+                  subjectCode: assignment.courseCode || "",
+                  isSubmitted: assignment.status === "submitted" || assignment.status === "graded"
+                }))} 
+              />
             )}
-          </CardContent>
-        </Card>
-
-        {/* Attendance & Assignments */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* Attendance Chart */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Attendance Summary</CardTitle>
-              <CardDescription>Your attendance records for current courses</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <AttendanceChart data={dashboardData?.attendance || []} />
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Assignments */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle>Upcoming Assignments</CardTitle>
-              <CardDescription>Assignments due in the next week</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-4">
-              <UpcomingAssignments assignments={dashboardData?.assignments || []} />
-            </CardContent>
-          </Card>
+          </div>
         </div>
-
+        
         {/* Grades */}
         <Card>
           <CardHeader className="pb-2">

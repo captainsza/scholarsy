@@ -1,48 +1,30 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useAuth } from "@/context/AuthContext";
 import { useRouter } from "next/navigation";
 import FacultyLayout from "@/components/layouts/FacultyLayout";
-import { useAuth } from "@/context/AuthContext";
-import { 
-  Card, 
-  CardContent, 
-  CardHeader, 
-  CardTitle,
-  CardDescription,
-  CardFooter
-} from "@/components/ui/card";
-import { Badge } from "@/components/ui/Badge";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/Badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import LoadingSpinner from "@/components/ui/LoadingSpinner";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Calendar, 
-  Users, 
-  Clock,
+import { toast } from "@/components/ui/toastall";
+import {
+  Calendar,
   Check,
+  Clock,
   X,
   BarChart3,
-  Plus,
+  Filter,
   Search,
+  Plus,
+  Users,
   BookOpen,
-  Filter
 } from "lucide-react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 
 export default function FacultyAttendanceDashboard() {
   const { user } = useAuth();
@@ -103,17 +85,20 @@ export default function FacultyAttendanceDashboard() {
     fetchAttendanceData();
   }, [user]);
 
-  // Filter subjects based on search term
+  // Filter subjects based on search term - with null checks
   const filteredSubjects = subjects.filter(subject => 
-    subject.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    subject.section?.name.toLowerCase().includes(searchTerm.toLowerCase())
+    // Check if subject exists and has required properties before filtering
+    subject && (
+      (subject.name && subject.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (subject.code && subject.code.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (subject.courseName && subject.courseName.toLowerCase().includes(searchTerm.toLowerCase()))
+    )
   );
 
   // Filter attendance records based on selected subject
   const filteredAttendance = selectedSubject === "all" 
     ? recentAttendance 
-    : recentAttendance.filter(record => record.subjectId === selectedSubject);
+    : recentAttendance.filter(record => record && record.subjectId === selectedSubject);
 
   if (loading) {
     return (
@@ -218,20 +203,19 @@ export default function FacultyAttendanceDashboard() {
           <TabsList className="mb-4">
             <TabsTrigger value="subjects">Your Subjects</TabsTrigger>
             <TabsTrigger value="recent">Recent Attendance</TabsTrigger>
-            <TabsTrigger value="report">Attendance Reports</TabsTrigger>
           </TabsList>
 
-          {/* Subjects Tab - Similar to the TakeAttendancePage UI */}
+          {/* Subjects Tab */}
           <TabsContent value="subjects">
             <div className="mb-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="relative w-full max-w-sm">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <Search className="h-5 w-5 text-gray-400" />
                 </div>
-                <input
+                <Input
                   type="text"
                   placeholder="Search subjects..."
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                  className="pl-10"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -262,21 +246,23 @@ export default function FacultyAttendanceDashboard() {
                         <CardHeader className="bg-gray-50 pb-2">
                           <div className="flex justify-between items-start">
                             <div>
-                              <CardTitle className="text-lg">{subject.name}</CardTitle>
-                              <p className="text-xs text-gray-500 mt-1">{subject.code}</p>
+                              <CardTitle className="text-lg">{subject.name || "Unnamed Subject"}</CardTitle>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {subject.code || "No Code"} • {subject.courseName || "No Course"}
+                              </p>
                             </div>
-                            <Badge variant="outline">{subject.section?.name}</Badge>
+                            <Badge variant="outline">{subject.courseBranch || subject.courseYear || "N/A"}</Badge>
                           </div>
                         </CardHeader>
                         <CardContent className="pt-4">
                           <div className="mb-4">
                             <p className="text-sm text-gray-500 flex items-center">
                               <Users className="h-4 w-4 mr-2" />
-                              {subject.section?.enrollments?.length || 0} Students
+                              {subject.studentCount || 0} Students
                             </p>
                             <p className="text-sm text-gray-500 flex items-center mt-1">
                               <BookOpen className="h-4 w-4 mr-2" />
-                              {subject.creditHours} Credit Hours
+                              {subject.creditHours || 0} Credit Hours
                             </p>
                           </div>
                         </CardContent>
@@ -330,7 +316,7 @@ export default function FacultyAttendanceDashboard() {
                     <SelectItem value="all">All Subjects</SelectItem>
                     {subjects.map((subject) => (
                       <SelectItem key={subject.id} value={subject.id}>
-                        {subject.code} - {subject.name}
+                        {subject.code || "No Code"} - {subject.name || "Unnamed Subject"}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -344,7 +330,7 @@ export default function FacultyAttendanceDashboard() {
                 <CardDescription>
                   {selectedSubject === "all" 
                     ? "Showing recent attendance across all subjects" 
-                    : `Filtered by ${subjects.find(s => s.id === selectedSubject)?.name || ""}`}
+                    : `Filtered by ${subjects.find(s => s.id === selectedSubject)?.name || "selected subject"}`}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -355,38 +341,28 @@ export default function FacultyAttendanceDashboard() {
                         <TableRow>
                           <TableHead>Date</TableHead>
                           <TableHead>Subject</TableHead>
-                          <TableHead>Section</TableHead>
-                          <TableHead>Students Present</TableHead>
-                          <TableHead>Students Absent</TableHead>
+                          <TableHead>Course</TableHead>
+                          <TableHead>Students Count</TableHead>
                           <TableHead>Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {filteredAttendance.map((record) => (
                           <TableRow key={record.id}>
-                            <TableCell>{new Date(record.date).toLocaleDateString()}</TableCell>
+                            <TableCell>{record.formattedDate || "N/A"}</TableCell>
                             <TableCell>
-                              <div className="font-medium">{record.subject.code}</div>
-                              <div className="text-xs text-gray-500">{record.subject.name}</div>
+                              <div>
+                                <div className="font-medium">{record.subjectName || "N/A"}</div>
+                                <div className="text-sm text-gray-500">{record.subjectCode || "No Code"}</div>
+                              </div>
                             </TableCell>
-                            <TableCell>{record.subject.section.name}</TableCell>
-                            <TableCell>
-                              <Badge variant="success">{record.presentCount}</Badge>
-                              <span className="text-xs text-gray-500 ml-1">
-                                ({Math.round((record.presentCount / record.totalStudents) * 100)}%)
-                              </span>
-                            </TableCell>
-                            <TableCell>
-                              <Badge variant="destructive">{record.absentCount}</Badge>
-                              <span className="text-xs text-gray-500 ml-1">
-                                ({Math.round((record.absentCount / record.totalStudents) * 100)}%)
-                              </span>
-                            </TableCell>
+                            <TableCell>{record.courseName || "N/A"}</TableCell>
+                            <TableCell>{record.studentsCount || 0}</TableCell>
                             <TableCell>
                               <Button 
-                                variant="outline" 
-                                size="sm"
-                                onClick={() => router.push(`/faculty/subjects/${record.subject.id}/attendance?date=${record.date}`)}
+                                size="sm" 
+                                variant="outline"
+                                onClick={() => router.push(`/faculty/subjects/${record.subjectId}/attendance?date=${record.date}`)}
                               >
                                 View Details
                               </Button>
@@ -403,13 +379,14 @@ export default function FacultyAttendanceDashboard() {
                     <p className="mt-1 text-sm text-gray-500">
                       {selectedSubject !== "all" ? "No records found for selected subject." : "You haven't recorded any attendance yet."}
                     </p>
-                    <Button 
-                      onClick={() => router.push(`/faculty/subjects/${subjects[0]?.id}/attendance/take`)}
-                      className="mt-4" 
-                      disabled={!subjects.length}
-                    >
-                      Take Attendance
-                    </Button>
+                    {subjects.length > 0 && (
+                      <Button 
+                        onClick={() => router.push(`/faculty/subjects/${subjects[0]?.id}/attendance/take`)}
+                        className="mt-4"
+                      >
+                        Take Attendance
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
@@ -426,126 +403,6 @@ export default function FacultyAttendanceDashboard() {
             </Card>
           </TabsContent>
 
-          {/* Reports Tab */}
-          <TabsContent value="report">
-            <Card>
-              <CardHeader>
-                <CardTitle>Attendance Reports & Analytics</CardTitle>
-                <CardDescription>Comprehensive attendance data analysis</CardDescription>
-              </CardHeader>
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Attendance trend card */}
-                  <div className="md:col-span-2">
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Attendance Trends</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="aspect-[2/1] bg-gray-100 rounded-md flex items-center justify-center">
-                          <p className="text-gray-500">Attendance trend chart will appear here</p>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-
-                  {/* Subject comparison card */}
-                  <div>
-                    <Card>
-                      <CardHeader className="pb-2">
-                        <CardTitle className="text-base">Subject Comparison</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-4">
-                          {subjects.slice(0, 3).map((subject) => (
-                            <div key={subject.id} className="space-y-1">
-                              <div className="flex justify-between text-sm">
-                                <span>{subject.code}</span>
-                                <span>
-                                  {Math.round(Math.random() * 100)}% attendance
-                                </span>
-                              </div>
-                              <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-                                <div 
-                                  className="h-full bg-blue-600 rounded-full" 
-                                  style={{ 
-                                    width: `${Math.round(Math.random() * 100)}%` 
-                                  }}
-                                ></div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-
-                <div className="mt-6">
-                  <Card>
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base">Low Attendance Alert</CardTitle>
-                      <CardDescription>Students with attendance below 75%</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {/* Using the UI similar to the TakeAttendancePage table */}
-                      <div className="overflow-x-auto">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Student ID</TableHead>
-                              <TableHead>Student Name</TableHead>
-                              <TableHead>Subject</TableHead>
-                              <TableHead>Attendance %</TableHead>
-                              <TableHead>Actions</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {/* Sample data */}
-                            {Array(3).fill(0).map((_, idx) => (
-                              <TableRow key={idx}>
-                                <TableCell className="font-medium">STU-{100 + idx}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center">
-                                    <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm font-medium mr-2">
-                                      {String.fromCharCode(65 + idx)}S
-                                    </div>
-                                    <span>Sample Student {idx + 1}</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>{subjects[idx % subjects.length]?.code || 'CSC101'}</TableCell>
-                                <TableCell>
-                                  <div className="flex items-center">
-                                    <div className="w-16 bg-gray-200 rounded-full h-2 mr-2">
-                                      <div 
-                                        className="h-2 rounded-full bg-red-500"
-                                        style={{ width: `${60 + idx * 5}%` }}
-                                      ></div>
-                                    </div>
-                                    <span>{60 + idx * 5}%</span>
-                                  </div>
-                                </TableCell>
-                                <TableCell>
-                                  <Button variant="outline" size="sm">
-                                    Contact
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </CardContent>
-                    <CardFooter className="flex justify-end border-t px-6 py-4">
-                      <Button variant="outline" size="sm">
-                        View All Reports
-                      </Button>
-                    </CardFooter>
-                  </Card>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </FacultyLayout>

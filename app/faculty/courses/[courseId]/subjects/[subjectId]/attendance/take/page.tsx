@@ -36,13 +36,8 @@ interface SubjectInfo {
   id: string;
   name: string;
   code: string;
-  description?: string;
-  creditHours?: number;
   courseId: string;
-  courseName?: string;
-  courseBranch?: string;
-  courseYear?: string;
-  courseSemester?: string;
+  courseName: string;
 }
 
 type AttendanceStatus = "PRESENT" | "ABSENT" | "LATE";
@@ -52,12 +47,12 @@ interface StudentAttendance {
   name: string;
   enrollmentId: string;
   profileImage?: string | null;
-  attendanceStatus?: AttendanceStatus | null;
-  attendanceId?: string | null;
+  status: AttendanceStatus | null;
+  attendanceId: string | null;
 }
 
 export default function TakeAttendancePage() {
-  const { subjectId } = useParams() as { subjectId: string };
+  const { courseId, subjectId } = useParams() as { courseId: string, subjectId: string };
   const router = useRouter();
   const { user } = useAuth();
   const [date, setDate] = useState<Date>(new Date());
@@ -70,100 +65,73 @@ export default function TakeAttendancePage() {
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState("");
 
-  // Fetch subject info first to get courseId
+  // Fetch subject info
   useEffect(() => {
-    if (!subjectId || !user?.faculty?.id) return;
-    
-    const fetchSubjectDetails = async () => {
+    const fetchSubjectInfo = async () => {
       try {
-        setLoading(true);
-        
-        const res = await fetch(`/api/faculty/subjects/${subjectId}?facultyId=${user.faculty.id}`);
-        
+        const res = await fetch(`/api/faculty/courses/${courseId}/subjects/${subjectId}`);
         if (!res.ok) {
-          throw new Error(`Failed to fetch subject details: ${res.statusText}`);
+          throw new Error("Failed to fetch subject information");
         }
-        
         const data = await res.json();
-        if (data.subject) {
-          setSubjectInfo(data.subject);
-          
-          // Now that we have subject info with courseId, fetch students
-          fetchAttendanceData(data.subject.courseId);
-        } else {
-          throw new Error('No subject data returned');
-        }
+        setSubjectInfo(data.subject);
       } catch (err: any) {
-        console.error("Error fetching subject details:", err);
-        setError(err.message || "Failed to load subject details");
         toast({
           title: "Error",
-          description: "Failed to load subject details",
+          description: err.message || "Failed to load subject information",
           variant: "destructive",
         });
-        setLoading(false);
       }
     };
 
-    fetchSubjectDetails();
-  }, [subjectId, user]);
+    fetchSubjectInfo();
+  }, [courseId, subjectId]);
 
-  // Function to fetch attendance data once we have courseId
-  const fetchAttendanceData = async (courseId: string) => {
-    if (!courseId || !subjectId || !date) return;
-    
-    setError("");
-    setSuccess(false);
-    
-    try {
-      const formattedDate = format(date, "yyyy-MM-dd");
+  // Fetch students and attendance status for selected date
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      if (!courseId || !subjectId || !date) return;
       
-      // Use the course-based API route that we know works
-      const res = await fetch(`/api/faculty/courses/${courseId}/subjects/${subjectId}/attendance?date=${formattedDate}`);
+      setLoading(true);
+      setError("");
+      setSuccess(false);
       
-      if (!res.ok) {
-        throw new Error(`Failed to fetch attendance data: ${res.statusText}`);
-      }
-      
-      const data = await res.json();
-      
-      if (data.students && Array.isArray(data.students)) {
+      try {
+        const formattedDate = format(date, "yyyy-MM-dd");
+        const res = await fetch(`/api/faculty/courses/${courseId}/subjects/${subjectId}/attendance?date=${formattedDate}`);
+        
+        if (!res.ok) {
+          throw new Error("Failed to fetch attendance data");
+        }
+        
+        const data = await res.json();
+        
         // Transform data
         const studentsWithAttendance = data.students.map((student: any) => ({
           studentId: student.id,
-          name: student.name || 'Unknown',
-          enrollmentId: student.enrollmentId || 'N/A',
+          name: student.name,
+          enrollmentId: student.enrollmentId,
           profileImage: student.profileImage,
-          attendanceStatus: student.attendanceStatus,
+          status: student.attendanceStatus,
           attendanceId: student.attendanceId,
         }));
         
         setStudents(studentsWithAttendance);
         setFilteredStudents(studentsWithAttendance);
-      } else {
-        console.warn('No students data found in API response:', data);
-        setStudents([]);
-        setFilteredStudents([]);
+      } catch (err: any) {
+        setError(err.message || "Failed to load attendance data");
+        toast({
+          title: "Error",
+          description: err.message || "Failed to load attendance data",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      console.error("Error fetching attendance data:", err);
-      setError(err.message || "Failed to load attendance data");
-      toast({
-        title: "Error",
-        description: err.message || "Failed to load attendance data",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
-  // Refetch attendance data when date changes
-  useEffect(() => {
-    if (subjectInfo?.courseId && date) {
-      fetchAttendanceData(subjectInfo.courseId);
-    }
-  }, [date, subjectInfo?.courseId]);
+    fetchAttendance();
+  }, [courseId, subjectId, date]);
 
   // Filter students based on search query
   useEffect(() => {
@@ -175,8 +143,8 @@ export default function TakeAttendancePage() {
     const lowerQuery = searchQuery.toLowerCase();
     const filtered = students.filter(
       (student) =>
-        (student.name && student.name.toLowerCase().includes(lowerQuery)) ||
-        (student.enrollmentId && student.enrollmentId.toLowerCase().includes(lowerQuery))
+        student.name.toLowerCase().includes(lowerQuery) ||
+        student.enrollmentId.toLowerCase().includes(lowerQuery)
     );
     setFilteredStudents(filtered);
   }, [students, searchQuery]);
@@ -186,7 +154,7 @@ export default function TakeAttendancePage() {
     setStudents((prevStudents) =>
       prevStudents.map((student) =>
         student.studentId === studentId
-          ? { ...student, attendanceStatus: status }
+          ? { ...student, status }
           : student
       )
     );
@@ -194,7 +162,7 @@ export default function TakeAttendancePage() {
     setFilteredStudents((prevStudents) =>
       prevStudents.map((student) =>
         student.studentId === studentId
-          ? { ...student, attendanceStatus: status }
+          ? { ...student, status }
           : student
       )
     );
@@ -203,17 +171,17 @@ export default function TakeAttendancePage() {
   // Set all students to the same status
   const markAll = (status: AttendanceStatus) => {
     setStudents((prevStudents) =>
-      prevStudents.map((student) => ({ ...student, attendanceStatus: status }))
+      prevStudents.map((student) => ({ ...student, status }))
     );
     
     setFilteredStudents((prevStudents) =>
-      prevStudents.map((student) => ({ ...student, attendanceStatus: status }))
+      prevStudents.map((student) => ({ ...student, status }))
     );
   };
 
   // Save attendance data
   const saveAttendance = async () => {
-    if (!subjectInfo?.courseId || !subjectId) return;
+    if (!courseId || !subjectId) return;
     
     setSubmitting(true);
     setError("");
@@ -225,12 +193,11 @@ export default function TakeAttendancePage() {
       // Prepare attendance data
       const attendanceData = students.map((student) => ({
         studentId: student.studentId,
-        status: student.attendanceStatus || "ABSENT", // Default to absent if not marked
+        status: student.status || "ABSENT", // Default to absent if not marked
         attendanceId: student.attendanceId,
       }));
       
-      // Use the course-based API route for saving as well
-      const res = await fetch(`/api/faculty/courses/${subjectInfo.courseId}/subjects/${subjectId}/attendance`, {
+      const res = await fetch(`/api/faculty/courses/${courseId}/subjects/${subjectId}/attendance`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -249,9 +216,6 @@ export default function TakeAttendancePage() {
         title: "Success",
         description: "Attendance saved successfully",
       });
-      
-      // Refetch attendance data to update IDs
-      fetchAttendanceData(subjectInfo.courseId);
     } catch (err: any) {
       setError(err.message || "Failed to save attendance");
       toast({
@@ -267,10 +231,10 @@ export default function TakeAttendancePage() {
   // Stats for the current attendance
   const getStats = () => {
     const total = students.length;
-    const present = students.filter((s) => s.attendanceStatus === "PRESENT").length;
-    const absent = students.filter((s) => s.attendanceStatus === "ABSENT").length;
-    const late = students.filter((s) => s.attendanceStatus === "LATE").length;
-    const notMarked = students.filter((s) => s.attendanceStatus === null || s.attendanceStatus === undefined).length;
+    const present = students.filter((s) => s.status === "PRESENT").length;
+    const absent = students.filter((s) => s.status === "ABSENT").length;
+    const late = students.filter((s) => s.status === "LATE").length;
+    const notMarked = students.filter((s) => s.status === null).length;
     
     return { total, present, absent, late, notMarked };
   };
@@ -278,7 +242,7 @@ export default function TakeAttendancePage() {
   const stats = getStats();
 
   // Helper to get background for attendance status
-  const getStatusBg = (status: AttendanceStatus | null | undefined) => {
+  const getStatusBg = (status: AttendanceStatus | null) => {
     switch (status) {
       case "PRESENT":
         return "bg-green-50 hover:bg-green-100";
@@ -310,7 +274,7 @@ export default function TakeAttendancePage() {
               <p className="text-gray-500">
                 {subjectInfo ? (
                   <>
-                    {subjectInfo.code}: {subjectInfo.name} | {subjectInfo.courseName || "Unknown Course"}
+                    {subjectInfo.code}: {subjectInfo.name} | {subjectInfo.courseName}
                   </>
                 ) : "Loading..."}
               </p>
@@ -358,7 +322,6 @@ export default function TakeAttendancePage() {
                   size="sm"
                   onClick={() => markAll("PRESENT")}
                   className="bg-green-50 text-green-700 hover:bg-green-100 hover:text-green-800 border-green-200"
-                  disabled={loading || submitting}
                 >
                   <CheckCircle2 className="mr-1 h-4 w-4" /> Mark All Present
                 </Button>
@@ -367,7 +330,6 @@ export default function TakeAttendancePage() {
                   size="sm"
                   onClick={() => markAll("ABSENT")}
                   className="bg-red-50 text-red-700 hover:bg-red-100 hover:text-red-800 border-red-200"
-                  disabled={loading || submitting}
                 >
                   <XCircle className="mr-1 h-4 w-4" /> Mark All Absent
                 </Button>
@@ -423,7 +385,6 @@ export default function TakeAttendancePage() {
                 className="pl-10"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                disabled={loading || submitting}
               />
             </div>
             
@@ -460,7 +421,7 @@ export default function TakeAttendancePage() {
                   </TableHeader>
                   <TableBody>
                     {filteredStudents.map((student, index) => (
-                      <TableRow key={student.studentId} className={getStatusBg(student.attendanceStatus)}>
+                      <TableRow key={student.studentId} className={getStatusBg(student.status)}>
                         <TableCell className="font-medium">{index + 1}</TableCell>
                         <TableCell>{student.name}</TableCell>
                         <TableCell>{student.enrollmentId}</TableCell>
@@ -468,30 +429,27 @@ export default function TakeAttendancePage() {
                           <div className="flex justify-center gap-3">
                             <Button
                               size="sm"
-                              variant={student.attendanceStatus === "PRESENT" ? "default" : "outline"}
+                              variant={student.status === "PRESENT" ? "default" : "outline"}
                               onClick={() => handleStatusChange(student.studentId, "PRESENT")}
-                              className={student.attendanceStatus === "PRESENT" ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-200 hover:bg-green-50"}
-                              disabled={submitting}
+                              className={student.status === "PRESENT" ? "bg-green-600 hover:bg-green-700" : "text-green-700 border-green-200 hover:bg-green-50"}
                             >
                               <CheckCircle2 className="h-4 w-4" />
                               <span className="sr-only sm:not-sr-only sm:ml-2 sm:text-xs">Present</span>
                             </Button>
                             <Button
                               size="sm"
-                              variant={student.attendanceStatus === "ABSENT" ? "default" : "outline"}
+                              variant={student.status === "ABSENT" ? "default" : "outline"}
                               onClick={() => handleStatusChange(student.studentId, "ABSENT")}
-                              className={student.attendanceStatus === "ABSENT" ? "bg-red-600 hover:bg-red-700" : "text-red-700 border-red-200 hover:bg-red-50"}
-                              disabled={submitting}
+                              className={student.status === "ABSENT" ? "bg-red-600 hover:bg-red-700" : "text-red-700 border-red-200 hover:bg-red-50"}
                             >
                               <XCircle className="h-4 w-4" />
                               <span className="sr-only sm:not-sr-only sm:ml-2 sm:text-xs">Absent</span>
                             </Button>
                             <Button
                               size="sm"
-                              variant={student.attendanceStatus === "LATE" ? "default" : "outline"}
+                              variant={student.status === "LATE" ? "default" : "outline"}
                               onClick={() => handleStatusChange(student.studentId, "LATE")}
-                              className={student.attendanceStatus === "LATE" ? "bg-amber-600 hover:bg-amber-700" : "text-amber-700 border-amber-200 hover:bg-amber-50"}
-                              disabled={submitting}
+                              className={student.status === "LATE" ? "bg-amber-600 hover:bg-amber-700" : "text-amber-700 border-amber-200 hover:bg-amber-50"}
                             >
                               <Clock className="h-4 w-4" />
                               <span className="sr-only sm:not-sr-only sm:ml-2 sm:text-xs">Late</span>
@@ -516,7 +474,7 @@ export default function TakeAttendancePage() {
             </Button>
             <Button
               onClick={saveAttendance}
-              disabled={submitting || loading || filteredStudents.length === 0}
+              disabled={submitting || loading || students.length === 0}
               className="bg-indigo-600 hover:bg-indigo-700 text-white"
             >
               {submitting ? (

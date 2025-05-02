@@ -136,6 +136,7 @@ export default function StudentAttendancePage() {
 
   const overallStats = calculateOverallAttendance();
   const filteredRecords = getFilteredAttendanceRecords();
+  const hasTodayAttendance = attendanceData?.todayAttendance && attendanceData.todayAttendance.length > 0;
 
   if (loading) {
     return (
@@ -159,6 +160,106 @@ export default function StudentAttendancePage() {
           <div className="mb-6 bg-red-50 p-4 rounded-md">
             <p className="text-sm text-red-700">{error}</p>
           </div>
+        )}
+
+        {/* Today's Attendance Section */}
+        {hasTodayAttendance && (
+          <Card className="mb-8 border-l-4 border-l-blue-500">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-xl">
+                <Calendar className="mr-2 h-5 w-5 text-blue-500" />
+                Today's Attendance
+              </CardTitle>
+              <CardDescription>
+                {new Date().toLocaleDateString(undefined, { 
+                  weekday: 'long',
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric'
+                })}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {attendanceData.todayAttendance.map((record: any) => (
+                  <div key={record.id} className="flex justify-between items-center p-3 rounded-md bg-gray-50">
+                    <div>
+                      <p className="font-medium">{record.subjectCode}: {record.subjectName}</p>
+                      {record.remarks && (
+                        <p className="text-xs text-gray-500 mt-1">{record.remarks}</p>
+                      )}
+                    </div>
+                    <Badge 
+                      variant={
+                        record.status === "PRESENT" ? "success" : 
+                        record.status === "ABSENT" ? "destructive" : "warning"
+                      }
+                      className="ml-2"
+                    >
+                      {record.status}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Monthly Statistics Card */}
+        {attendanceData?.monthlyStats && (
+          <Card className="mb-8 bg-gradient-to-r from-indigo-50 to-blue-50">
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center text-xl">
+                <Calendar className="mr-2 h-5 w-5 text-indigo-500" />
+                {attendanceData.monthlyStats.month} Attendance
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-6">
+                <div className="flex items-center">
+                  <div className="w-16 h-16 rounded-full flex items-center justify-center bg-white border-4 border-indigo-500 mr-4">
+                    <span className="text-xl font-bold text-indigo-600">{attendanceData.monthlyStats.percentage}%</span>
+                  </div>
+                  <div>
+                    <p className="text-sm text-gray-500">Overall</p>
+                    <p className="font-medium">{attendanceData.monthlyStats.total} Classes</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4 md:gap-8">
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center mr-3">
+                      <Check className="h-5 w-5 text-green-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Present</p>
+                      <p className="font-medium">{attendanceData.monthlyStats.present}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center mr-3">
+                      <X className="h-5 w-5 text-red-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Absent</p>
+                      <p className="font-medium">{attendanceData.monthlyStats.absent}</p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex items-center">
+                    <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center mr-3">
+                      <Clock className="h-5 w-5 text-yellow-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm text-gray-500">Late</p>
+                      <p className="font-medium">{attendanceData.monthlyStats.late}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Attendance Overview Cards */}
@@ -226,12 +327,29 @@ export default function StudentAttendancePage() {
             </CardContent>
           </Card>
 
-         
+          <Card className="bg-yellow-50">
+            <CardContent className="pt-6">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium text-gray-500">Late</p>
+                  <p className="mt-1 text-3xl font-bold text-yellow-700">{overallStats.late}</p>
+                </div>
+                <div className="h-12 w-12 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <Clock className="h-6 w-6 text-yellow-600" />
+                </div>
+              </div>
+              <div className="mt-3 text-sm text-yellow-600">
+                {overallStats.total > 0 && 
+                  `${Math.round((overallStats.late / overallStats.total) * 100)}% of classes`}
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         <Tabs defaultValue="records" className="mb-6">
           <TabsList className="mb-4">
             <TabsTrigger value="records">Subject-wise</TabsTrigger>
+            <TabsTrigger value="subjects">Attendance by Subject</TabsTrigger>
           </TabsList>
 
           <TabsContent value="records">

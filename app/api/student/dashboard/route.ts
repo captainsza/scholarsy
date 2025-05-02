@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 
     // Get all registrations for the student (this is the older registration model)
     // This can be eventually phased out once fully migrated to courseEnrollment
-    let registrations = [];
+    let registrations: any[] = [];
     try {
       // Wrap this in a try-catch to handle potential errors from null course references
       registrations = await prisma.registration.findMany({
@@ -191,6 +191,47 @@ export async function GET(req: NextRequest) {
     
     const profileCompletionPercentage = Math.round((filledFields / requiredFields.length) * 100);
 
+    // Fetch upcoming assignments (limited to 5)
+    const enrolledCourseIds = courseEnrollments.map(enrollment => enrollment.courseId);
+    const upcomingAssignments = await prisma.assessment.findMany({
+      where: {
+        subject: {
+          courseId: {
+            in: enrolledCourseIds
+          }
+        },
+        dueDate: {
+          gt: new Date()  // Only future assignments
+        }
+      },
+      orderBy: {
+        dueDate: 'asc'  // Sort by closest due date first
+      },
+      take: 5,
+      include: {
+        subject: true,
+        marks: {
+          where: {
+            studentId: student.id
+          }
+        }
+      }
+    });
+    
+    const formattedAssignments = upcomingAssignments.map(assessment => {
+      const hasSubmitted = assessment.marks.length > 0;
+      
+      return {
+        id: assessment.id,
+        title: assessment.title,
+        type: assessment.type,
+        dueDate: assessment.dueDate,
+        subjectName: assessment.subject.name,
+        subjectCode: assessment.subject.code,
+        isSubmitted: hasSubmitted
+      };
+    });
+
     // Format response data
     const responseData = {
       student: {
@@ -220,6 +261,7 @@ export async function GET(req: NextRequest) {
         courseName: record.course?.name || 'Unknown Course',
         daysAgo: differenceInDays(new Date(), new Date(record.date)),
       })),
+      upcomingAssignments: formattedAssignments
     };
 
     return NextResponse.json(responseData);

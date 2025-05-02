@@ -1,83 +1,114 @@
-import { NextRequest, NextResponse } from "next/server";
-import { PrismaClient } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { PrismaClient } from '@prisma/client';
+import { cookies } from 'next/headers';
+import jwt from 'jsonwebtoken';
 
 const prisma = new PrismaClient();
 
-// Get all subjects for a specific faculty
 export async function GET(req: NextRequest) {
   try {
+    const token = (await cookies()).get('auth-token')?.value;
+    
+    if (!token) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'your-secret-key'
+    ) as { id: string, role: string };
+    
+    if (decoded.role !== 'FACULTY') {
+      return NextResponse.json({ message: 'Faculty access required' }, { status: 403 });
+    }
+    
     const facultyId = req.nextUrl.searchParams.get('facultyId');
     
     if (!facultyId) {
-      return NextResponse.json({ message: "Faculty ID is required" }, { status: 400 });
-    }
-
-    // Check if faculty exists
-    const faculty = await prisma.faculty.findUnique({
-      where: { id: facultyId }
-    });
-
-    if (!faculty) {
-      return NextResponse.json({ message: "Faculty not found" }, { status: 404 });
+      return NextResponse.json({ message: 'Faculty ID is required' }, { status: 400 });
     }
 
     // Get subjects directly assigned to faculty
     const subjects = await prisma.subject.findMany({
       where: { facultyId },
       include: {
-        section: {
+        course: {
           include: {
-            course: true,
             enrollments: {
-              where: { status: 'ACTIVE' }
+              where: { status: 'ACTIVE' },
+              include: { student: true }
             }
-          }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    });
-
-    // Also get subjects from courses where faculty is the course coordinator
-    const courseSubjects = await prisma.subject.findMany({
-      where: {
-        section: {
-          course: {
-            facultyId
           }
         },
-        facultyId: null // Only get subjects not directly assigned to a faculty
-      },
-      include: {
-        section: {
+        faculty: {
           include: {
-            course: true,
-            enrollments: {
-              where: { status: 'ACTIVE' }
+            user: {
+              include: {
+                profile: true
+              }
             }
           }
-        }
+        },
+        attendances: true,
+        assessments: true,
       },
       orderBy: {
         name: 'asc'
       }
     });
 
-    // Combine both sets of subjects, avoiding duplicates
-    const allSubjects = [...subjects];
-    for (const subject of courseSubjects) {
-      // Check if this subject is already included
-      if (!allSubjects.some(s => s.id === subject.id)) {
-        allSubjects.push(subject);
-      }
-    }
+    // Transform data for response
+    const transformedSubjects = subjects.map(subject => ({
+      id: subject.id,
+      name: subject.name,
+      code: subject.code,
+      description: subject.description,
+      creditHours: subject.creditHours,
+      courseId: subject.courseId,
+      courseName: subject.course?.name,
+      courseBranch: subject.course?.branch,
+      courseYear: subject.course?.year,
+      courseSemester: subject.course?.semester,
+      studentCount: subject.course?.enrollments?.length || 0,
+      attendanceCount: subject.attendances?.length || 0,
+      assessmentCount: subject.assessments?.length || 0,
+      facultyName: subject.faculty?.user?.profile 
+        ? `${subject.faculty.user.profile.firstName} ${subject.faculty.user.profile.lastName}`
+        : "Not assigned"
+    }));
 
-    return NextResponse.json({ subjects: allSubjects });
-  } catch (error) {
-    console.error("Failed to fetch faculty subjects:", error);
+    // Get courses that the faculty coordinates
+    const coordinatedCourses = await prisma.course.findMany({
+      where: { facultyId },
+      include: {
+        subjects: true,
+        enrollments: {
+          where: { status: 'ACTIVE' }
+        }
+      }
+    });
+
+    // Transform course data
+    const transformedCourses = coordinatedCourses.map(course => ({
+      id: course.id,
+      name: course.name,
+      branch: course.branch,
+      year: course.year,
+      semester: course.semester,
+      studentCount: course.enrollments?.length || 0,
+      subjectCount: course.subjects?.length || 0,
+      isCoordinator: true
+    }));
+
+    return NextResponse.json({
+      subjects: transformedSubjects,
+      coordinatedCourses: transformedCourses
+    });
+
+  } catch (error: any) {
+    console.error('Faculty subjects fetch error:', error);
     return NextResponse.json(
-      { message: "Failed to fetch faculty subjects" },
+      { message: 'Failed to fetch faculty subjects', error: error.message }, 
       { status: 500 }
     );
   } finally {
@@ -85,7 +116,6 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// Create a new subject assigned to this faculty
 export async function POST(req: NextRequest) {
   try {
     const facultyId = req.nextUrl.searchParams.get('facultyId');
@@ -104,24 +134,20 @@ export async function POST(req: NextRequest) {
     }
 
     // Parse request body
-    const { name, code, description, creditHours, sectionId } = await req.json();
+    const { name, code, description, creditHours } = await req.json();
     
     // Validate required fields
-    if (!name || !code || !sectionId || !creditHours) {
+    if (!name || !code || !creditHours) {
       return NextResponse.json(
-        { message: "Missing required fields: name, code, sectionId, creditHours" },
+        { message: "Missing required fields: name, code, creditHours" },
         { status: 400 }
       );
     }
 
     // Check if section exists
-    const section = await prisma.courseSection.findUnique({
-      where: { id: sectionId }
-    });
 
-    if (!section) {
-      return NextResponse.json({ message: "Section not found" }, { status: 404 });
-    }
+
+
 
     // Create the new subject
     const subject = await prisma.subject.create({
@@ -130,8 +156,7 @@ export async function POST(req: NextRequest) {
         code,
         description,
         creditHours,
-        sectionId,
-        facultyId
+        facultyId,
       }
     });
 

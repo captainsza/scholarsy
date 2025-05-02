@@ -389,6 +389,8 @@ model Assessment {
   weightage     Float    // Percentage in final grade
   dueDate       DateTime?
   instructions  String?
+  attachmentUrl String?   // Add this field for storing file URLs
+  createdAt     DateTime  @default(now()) // Add this field for creation timestamp
   
   subject       Subject  @relation(fields: [subjectId], references: [id])
   marks         AssessmentMark[]
@@ -414,6 +416,7 @@ model AssessmentMark {
   feedback      String?
   submittedAt   DateTime?
   evaluatedAt   DateTime?
+  fileUrl       String?   // Add this field to store submission file URL
   
   assessment    Assessment @relation(fields: [assessmentId], references: [id])
   student       Student    @relation(fields: [studentId], references: [id])
