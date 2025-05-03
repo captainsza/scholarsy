@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScholarSync Process Flow Chart</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #0ea5e9;
+            --primary-dark: #0284c7;
+            --secondary: #3b82f6;
+            --accent: #22d3ee;
+            --text: #1e293b;
+            --text-light: #64748b;
+            --bg: #f8fafc;
+            --bg-card: #ffffff;
+            --border: #e2e8f0;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            scroll-padding-top: 70px;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-start;
+            min-height: 100vh;
+            margin: 0;
+            padding-top: 2rem;
+        }
+
+        header {
+            width: 100%;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            color: var(--text);
+            margin-bottom: 0.5rem;
+            background: linear-gradient(to right, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle {
+            color: var(--text-light);
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .tab {
+            padding: 0.75rem 1.5rem;
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-weight: 600;
+            color: var(--text-light);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .tab i {
+            font-size: 1rem;
+        }
+
+        .tab.active {
+            background-color: var(--primary);
+            color: white;
+            border-color: var(--primary);
+            box-shadow: 0 4px 6px rgba(14, 165, 233, 0.2);
+        }
+
+        .tab:hover:not(.active) {
+            background-color: var(--bg);
+            color: var(--primary);
+        }
+
+        .charts-container {
+            width: 90%;
+            max-width: 1400px;
+        }
+
+        .chart-container {
+            background-color: white;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            margin-bottom: 2rem;
+            width: 100%;
+            display: none;
+        }
+
+        .chart-container.active {
+            display: block;
+        }
+
+        .chart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 1rem;
+        }
+
+        .chart-title {
+            font-size: 1.5rem;
+            color: var(--text);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .chart-title i {
+            color: var(--primary);
+        }
+
+        .chart-description {
+            color: var(--text-light);
+            margin-bottom: 1.5rem;
+            line-height: 1.6;
+        }
+
+        .mermaid {
+            width: 100%;
+            height: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: var(--bg);
+            border-radius: 8px;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .legend-color {
+            width: 15px;
+            height: 15px;
+            border-radius: 3px;
+        }
+
+        .buttons-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 2rem;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .btn-primary {
+            background-color: var(--primary);
+            color: white;
+            border: 1px solid var(--primary);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--primary-dark);
+        }
+
+        .btn-secondary {
+            background-color: white;
+            color: var(--text);
+            border: 1px solid var(--border);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--bg);
+        }
+
+        .error-message {
+            color: var(--danger);
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: rgba(239, 68, 68, 0.1);
+            border-radius: 8px;
+            border-left: 4px solid var(--danger);
+            font-weight: bold;
+            display: none;
+        }
+
+        .download-options {
+            display: flex;
+            flex-direction: column;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 90%;
+            max-width: 500px;
+            z-index: 1000;
+            display: none;
+        }
+
+        .download-options h3 {
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .option-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .option-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+        }
+
+        .option-row {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .option-row input[type="range"] {
+            flex: 1;
+        }
+
+        .option-value {
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 999;
+            display: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: flex-end;
+            gap: 0.5rem;
+        }
+
+        .image-preview {
+            max-width: 100%;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+        }
+
+        footer {
+            margin-top: auto;
+            padding: 2rem 0;
+            text-align: center;
+            color: var(--text-light);
+            width: 100%;
+            border-top: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+
+        @media (max-width: 768px) {
+            .chart-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 1rem;
+            }
+            
+            .chart-container {
+                padding: 1.5rem;
+            }
+            
+            .tab {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>ScholarSync Process Flow Charts</h1>
+        <p class="subtitle">Visual representation of key workflows in the ScholarSync ERP System</p>
+    </header>
+
+    <div class="tabs">
+        <div class="tab active" data-target="enrollment">
+            <i class="fas fa-user-graduate"></i> Student Enrollment
+        </div>
+        <div class="tab" data-target="assignment">
+            <i class="fas fa-tasks"></i> Assignment Submission
+        </div>
+        <div class="tab" data-target="attendance">
+            <i class="fas fa-clipboard-check"></i> Attendance Management
+        </div>
+        <div class="tab" data-target="notice">
+            <i class="fas fa-bullhorn"></i> Notice Publication
+        </div>
+        <div class="tab" data-target="auth">
+            <i class="fas fa-lock"></i> Authentication
+        </div>
+    </div>
+
+    <div class="charts-container">
+        <div class="error-message" id="error-message">Error rendering chart. Please check syntax.</div>
+        
+        <!-- Student Enrollment Workflow -->
+        <div class="chart-container active" id="enrollment-chart">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-user-graduate"></i> Student Enrollment Workflow</h2>
+            </div>
+            <p class="chart-description">
+                This diagram illustrates the process of enrolling students in courses within the ScholarSync ERP system. 
+                The workflow begins with an administrator creating a new course and ends with students accessing their enrolled courses.
+            </p>
+            <div class="mermaid">
+%%{init: {
+    'theme': 'base',
+    'themeVariables': {
+        'primaryColor': '#0ea5e9',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#0284c7',
+        'lineColor': '#64748b',
+        'secondaryColor': '#10b981',
+        'tertiaryColor': '#f59e0b'
+    }
+}}%%
+flowchart TD
+    A["🧑‍💼 Admin creates new course"] -->|Course data| B["📚 Course added to system"]
+    B --> C["🧑‍💼 Admin adds subjects to course"]
+    C -->|Subject data| D["📋 Subjects linked to course"]
+    D --> E["🧑‍💼 Admin enrolls students in course"]
+    E -->|Enrollment data| F["⚙️ System assigns courses to students"]
+    F --> G["👨‍🎓 Students access enrolled courses"]
+    G -->|View resources| H["📱 Access course materials"]
+    
+    classDef admin fill:#0ea5e9,stroke:#0284c7,color:white,stroke-width:2px
+    classDef system fill:#10b981,stroke:#059669,color:white,stroke-width:2px
+    classDef student fill:#f59e0b,stroke:#d97706,color:white,stroke-width:2px
+    classDef resource fill:#f8fafc,stroke:#e2e8f0,color:#1e293b,stroke-width:1px
+    
+    class A,C,E admin
+    class B,D,F system
+    class G,H student
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #0ea5e9;"></div>
+                    <span>Admin Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #10b981;"></div>
+                    <span>System Processes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f59e0b;"></div>
+                    <span>Student Actions</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Assignment Submission Workflow -->
+        <div class="chart-container" id="assignment-chart">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-tasks"></i> Assignment Submission Workflow</h2>
+            </div>
+            <p class="chart-description">
+                This flowchart demonstrates the process of creating, submitting, and grading assignments in ScholarSync.
+                It covers the full lifecycle from creation by faculty to feedback review by students.
+            </p>
+            <div class="mermaid">
+%%{init: {
+    'theme': 'base',
+    'themeVariables': {
+        'primaryColor': '#3b82f6',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#2563eb',
+        'lineColor': '#64748b',
+        'secondaryColor': '#10b981',
+        'tertiaryColor': '#f59e0b'
+    }
+}}%%
+flowchart TD
+    A["👨‍🏫 Faculty creates assessment"] -->|Assignment details| B["📝 Sets due date & instructions"]
+    B --> C["⚙️ System notifies students"]
+    C -->|Notification| D["👨‍🎓 Students receive assignment"]
+    D --> E["👨‍🎓 Students complete work"]
+    E --> F["👨‍🎓 Students submit before deadline"]
+    F -->|Submission| G["📋 System records submission"]
+    G --> H["👨‍🏫 Faculty reviews submissions"]
+    H --> I["👨‍🏫 Faculty provides grades/feedback"]
+    I -->|Grades & comments| J["⚙️ System updates student records"]
+    J --> K["⚙️ System notifies students of grades"]
+    K -->|Notification| L["👨‍🎓 Students view grades & feedback"]
+    
+    classDef faculty fill:#3b82f6,stroke:#2563eb,color:white,stroke-width:2px
+    classDef system fill:#10b981,stroke:#059669,color:white,stroke-width:2px
+    classDef student fill:#f59e0b,stroke:#d97706,color:white,stroke-width:2px
+    
+    class A,B,H,I faculty
+    class C,G,J,K system
+    class D,E,F,L student
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #3b82f6;"></div>
+                    <span>Faculty Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #10b981;"></div>
+                    <span>System Processes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f59e0b;"></div>
+                    <span>Student Actions</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Attendance Management Workflow -->
+        <div class="chart-container" id="attendance-chart">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-clipboard-check"></i> Attendance Management Workflow</h2>
+            </div>
+            <p class="chart-description">
+                This diagram shows the process of managing attendance in the ScholarSync ERP system.
+                The workflow covers how faculty record attendance and how the data is made available to students and administrators.
+            </p>
+            <div class="mermaid">
+%%{init: {
+    'theme': 'base',
+    'themeVariables': {
+        'primaryColor': '#8b5cf6',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#7c3aed',
+        'lineColor': '#64748b',
+        'secondaryColor': '#10b981',
+        'tertiaryColor': '#f59e0b'
+    }
+}}%%
+flowchart TD
+    A["👨‍🏫 Faculty accesses attendance module"] -->|Select class| B["📋 System displays enrolled students"]
+    B --> C["👨‍🏫 Faculty takes attendance"]
+    C -->|Present/Absent| D["⚙️ System stores attendance records"]
+    D -->|Stats update| E["📊 System calculates attendance statistics"]
+    E --> F["👨‍🎓 Students view their attendance"]
+    E --> G["🧑‍💼 Admin generates attendance reports"]
+    G -->|Analysis| H["📈 Attendance trends & patterns"]
+    H --> I["🧑‍💼 Admin takes action if needed"]
+    
+    classDef faculty fill:#8b5cf6,stroke:#7c3aed,color:white,stroke-width:2px
+    classDef system fill:#10b981,stroke:#059669,color:white,stroke-width:2px
+    classDef student fill:#f59e0b,stroke:#d97706,color:white,stroke-width:2px
+    classDef admin fill:#ef4444,stroke:#dc2626,color:white,stroke-width:2px
+    
+    class A,C faculty
+    class B,D,E system
+    class F student
+    class G,I,H admin
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #8b5cf6;"></div>
+                    <span>Faculty Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #10b981;"></div>
+                    <span>System Processes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f59e0b;"></div>
+                    <span>Student Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ef4444;"></div>
+                    <span>Admin Actions</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Notice Publication Workflow -->
+        <div class="chart-container" id="notice-chart">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-bullhorn"></i> Notice Publication Workflow</h2>
+            </div>
+            <p class="chart-description">
+                This flowchart illustrates how notices are created, published, and distributed to relevant users in the ScholarSync system.
+                It shows the process from creation to viewing by target audiences.
+            </p>
+            <div class="mermaid">
+%%{init: {
+    'theme': 'base',
+    'themeVariables': {
+        'primaryColor': '#ec4899',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#db2777',
+        'lineColor': '#64748b',
+        'secondaryColor': '#10b981',
+        'tertiaryColor': '#f59e0b'
+    }
+}}%%
+flowchart TD
+    A["🧑‍💼 Admin or Faculty creates notice"] -->|Notice content| B["📝 Add title, description, priority"]
+    B --> C{"📎 Attach files?"}
+    C -->|Yes| D["📁 Upload attachments"]
+    C -->|No| E["👥 Select target audience"]
+    D --> E
+    E -->|All/Department/Course| F["⚙️ System processes notice"]
+    F -->|Publish| G["📱 Notice appears on dashboards"]
+    G --> H["📱 Users receive notifications"]
+    H --> I["👥 Users view notice details"]
+    I -->|If has attachments| J["📥 Users download attachments"]
+    
+    classDef creator fill:#ec4899,stroke:#db2777,color:white,stroke-width:2px
+    classDef system fill:#10b981,stroke:#059669,color:white,stroke-width:2px
+    classDef user fill:#f59e0b,stroke:#d97706,color:white,stroke-width:2px
+    classDef decision fill:#f8fafc,stroke:#e2e8f0,color:#1e293b,stroke-width:1px
+    
+    class A,B,D,E creator
+    class F,G system
+    class H,I,J user
+    class C decision
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ec4899;"></div>
+                    <span>Admin/Faculty Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #10b981;"></div>
+                    <span>System Processes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f59e0b;"></div>
+                    <span>User Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f8fafc;"></div>
+                    <span>Decision Points</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Authentication Workflow -->
+        <div class="chart-container" id="auth-chart">
+            <div class="chart-header">
+                <h2 class="chart-title"><i class="fas fa-lock"></i> Authentication Workflow</h2>
+            </div>
+            <p class="chart-description">
+                This diagram demonstrates the authentication flow in ScholarSync, including registration, verification, approval, and login processes.
+                It highlights the security measures implemented in the system.
+            </p>
+            <div class="mermaid">
+%%{init: {
+    'theme': 'base',
+    'themeVariables': {
+        'primaryColor': '#06b6d4',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#0891b2',
+        'lineColor': '#64748b',
+        'secondaryColor': '#10b981',
+        'tertiaryColor': '#f59e0b'
+    }
+}}%%
+flowchart TD
+    A["👤 User registers with email/password"] -->|Form submission| B["🔒 System validates input"]
+    B --> C["🔐 System hashes password"]
+    C --> D["⚙️ Creates unverified account"]
+    D --> E["📧 Sends verification email"]
+    E -->|Email link| F["👤 User clicks verification link"]
+    F --> G["⚙️ System verifies email"]
+    G --> H["👨‍💼 Admin reviews account"]
+    H -->|Approval decision| I{"✅ Approved?"}
+    I -->|Yes| J["⚙️ Account activated"]
+    I -->|No| K["⚙️ Account remains inactive"]
+    J --> L["👤 User logs in"]
+    L -->|Credentials| M["🔒 System validates credentials"]
+    M --> N["⚙️ Generates JWT token"]
+    N --> O["🔐 Sets authentication state"]
+    O --> P["📱 Redirects to dashboard"]
+    P -->|Role-based| Q["👤 User accesses authorized features"]
+    
+    classDef user fill:#06b6d4,stroke:#0891b2,color:white,stroke-width:2px
+    classDef system fill:#10b981,stroke:#059669,color:white,stroke-width:2px
+    classDef admin fill:#ef4444,stroke:#dc2626,color:white,stroke-width:2px
+    classDef decision fill:#f8fafc,stroke:#e2e8f0,color:#1e293b,stroke-width:1px
+    
+    class A,F,L,Q user
+    class B,C,D,E,G,J,K,M,N,O,P system
+    class H admin
+    class I decision
+            </div>
+            <div class="legend">
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #06b6d4;"></div>
+                    <span>User Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #10b981;"></div>
+                    <span>System Processes</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #ef4444;"></div>
+                    <span>Admin Actions</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color" style="background-color: #f8fafc;"></div>
+                    <span>Decision Points</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="buttons-container">
+        <button id="download-btn" class="btn btn-primary">
+            <i class="fas fa-download"></i> Download Current Chart
+        </button>
+        <a href="docs.html" class="btn btn-secondary">
+            <i class="fas fa-book"></i> View Documentation
+        </a>
+        <a href="pertchart.html" class="btn btn-secondary">
+            <i class="fas fa-project-diagram"></i> View PERT Chart
+        </a>
+    </div>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="download-options" id="download-options">
+        <h3><i class="fas fa-download"></i> Download Options</h3>
+        
+        <div class="option-group">
+            <label for="chart-width">Chart Width</label>
+            <div class="option-row">
+                <input type="range" id="chart-width" min="600" max="2000" step="50" value="1200">
+                <span id="width-value" class="option-value">1200px</span>
+            </div>
+        </div>
+        
+        <div class="option-group">
+            <label for="chart-scale">Chart Quality</label>
+            <div class="option-row">
+                <input type="range" id="chart-scale" min="1" max="4" step="0.5" value="2">
+                <span id="scale-value" class="option-value">2x</span>
+            </div>
+        </div>
+        
+        <div class="option-group">
+            <label for="chart-format">Format</label>
+            <select id="chart-format" class="form-select">
+                <option value="png">PNG Image</option>
+                <option value="jpeg">JPEG Image</option>
+            </select>
+        </div>
+        
+        <div class="action-buttons">
+            <button id="cancel-download" class="btn btn-secondary">Cancel</button>
+            <button id="confirm-download" class="btn btn-primary">Download</button>
+        </div>
+    </div>
+
+    <footer>
+        <p>&copy; 2023 ScholarSync ERP System | Process Flow Documentation</p>
+    </footer>
+
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        // Initialize Mermaid with adjusted configuration to fix the edge label error
+        mermaid.initialize({ 
+            startOnLoad: true,
+            securityLevel: 'loose',
+            theme: 'base',
+            flowchart: {
+                htmlLabels: true,
+                curve: 'basis',
+                nodeSpacing: 50,      // Increase space between nodes
+                rankSpacing: 80,      // Increase space between ranks
+                padding: 15          // Add padding inside nodes
+            },
+            themeVariables: {
+                edgeLabelBackground: '#ffffff'  // Better contrast for edge labels
+            },
+            er: { 
+                layoutDirection: 'TB',
+                minEntityWidth: 100, 
+                minEntityHeight: 75,
+                entityPadding: 15
+            },
+            logLevel: 1,
+            errorHandler: function(error) {
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'Mermaid Error: ' + error;
+                console.error('Mermaid error:', error);
+                return true;
+            }
+        });
+
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabs = document.querySelectorAll('.tab');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', function() {
+                    // Remove active class from all tabs
+                    tabs.forEach(t => t.classList.remove('active'));
+                    
+                    // Add active class to clicked tab
+                    this.classList.add('active');
+                    
+                    // Hide all chart containers
+                    const chartContainers = document.querySelectorAll('.chart-container');
+                    chartContainers.forEach(container => {
+                        container.classList.remove('active');
+                    });
+                    
+                    // Show the selected chart container
+                    const targetId = this.getAttribute('data-target') + '-chart';
+                    document.getElementById(targetId).classList.add('active');
+
+                    // Redraw the selected chart with a slight delay to ensure container is visible
+                    setTimeout(() => {
+                        try {
+                            const targetChart = document.getElementById(targetId).querySelector('.mermaid');
+                            mermaid.render('mermaid-temp', targetChart.textContent).then(result => {
+                                targetChart.innerHTML = result.svg;
+                            }).catch(error => {
+                                console.error('Mermaid rendering error:', error);
+                            });
+                        } catch (error) {
+                            console.error('Tab switching error:', error);
+                        }
+                    }, 100);
+                });
+            });
+            
+            // Initialize Mermaid
+            try {
+                mermaid.init(undefined, document.querySelectorAll('.mermaid'));
+            } catch (error) {
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'Initialization Error: ' + error.message;
+                console.error('Initialization error:', error);
+            }
+        });
+
+        // Enhanced download functionality
+        document.getElementById('download-btn').addEventListener('click', function() {
+            const overlay = document.getElementById('overlay');
+            const downloadOptions = document.getElementById('download-options');
+            
+            overlay.style.display = 'block';
+            downloadOptions.style.display = 'flex';
+        });
+        
+        document.getElementById('cancel-download').addEventListener('click', function() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('download-options').style.display = 'none';
+        });
+        
+        document.getElementById('chart-width').addEventListener('input', function() {
+            document.getElementById('width-value').textContent = this.value + 'px';
+        });
+        
+        document.getElementById('chart-scale').addEventListener('input', function() {
+            document.getElementById('scale-value').textContent = this.value + 'x';
+        });
+        
+        document.getElementById('confirm-download').addEventListener('click', function() {
+            const activeChart = document.querySelector('.chart-container.active');
+            const chartWidth = document.getElementById('chart-width').value;
+            const chartScale = document.getElementById('chart-scale').value;
+            const chartFormat = document.getElementById('chart-format').value;
+            
+            if (activeChart) {
+                const chartId = activeChart.id;
+                const chartName = chartId.replace('-chart', '');
+                
+                // Clone the chart container to modify it for export
+                const clonedChart = activeChart.cloneNode(true);
+                clonedChart.style.width = chartWidth + 'px';
+                clonedChart.style.display = 'block';
+                clonedChart.style.position = 'absolute';
+                clonedChart.style.left = '-9999px';
+                document.body.appendChild(clonedChart);
+                
+                html2canvas(clonedChart, {
+                    backgroundColor: '#ffffff',
+                    scale: parseFloat(chartScale),
+                    logging: false,
+                    useCORS: true,
+                    allowTaint: true
+                }).then(function(canvas) {
+                    // Remove the cloned element
+                    document.body.removeChild(clonedChart);
+                    
+                    const link = document.createElement('a');
+                    link.href = canvas.toDataURL('image/' + chartFormat);
+                    link.download = 'scholarsync_' + chartName + '_workflow.' + chartFormat;
+                    link.click();
+                    
+                    // Hide the download options
+                    document.getElementById('overlay').style.display = 'none';
+                    document.getElementById('download-options').style.display = 'none';
+                }).catch(function(error) {
+                    console.error('Error during chart download:', error);
+                    alert('Failed to download chart. Please try again.');
+                    document.body.removeChild(clonedChart);
+                });
+            }
+        });
+        
+        // Simplified flowcharts to avoid edge label errors
+        document.querySelectorAll('.mermaid').forEach(chart => {
+            // Replace long edge label text with shorter ones
+            const content = chart.textContent;
+            chart.textContent = content
+                .replace(/\|Course data\|/g, '|→|')
+                .replace(/\|Subject data\|/g, '|→|')
+                .replace(/\|Enrollment data\|/g, '|→|')
+                .replace(/\|View resources\|/g, '|→|')
+                .replace(/\|Assignment details\|/g, '|→|')
+                .replace(/\|Notification\|/g, '|→|')
+                .replace(/\|Submission\|/g, '|→|')
+                .replace(/\|Grades & comments\|/g, '|→|')
+                .replace(/\|Present\/Absent\|/g, '|→|')
+                .replace(/\|Stats update\|/g, '|→|')
+                .replace(/\|Analysis\|/g, '|→|')
+                .replace(/\|Notice content\|/g, '|→|')
+                .replace(/\|All\/Department\/Course\|/g, '|→|')
+                .replace(/\|Publish\|/g, '|→|')
+                .replace(/\|If has attachments\|/g, '|→|')
+                .replace(/\|Form submission\|/g, '|→|')
+                .replace(/\|Email link\|/g, '|→|')
+                .replace(/\|Approval decision\|/g, '|→|')
+                .replace(/\|Credentials\|/g, '|→|')
+                .replace(/\|Role-based\|/g, '|→|')
+                .replace(/\|Select class\|/g, '|→|');
+        });
+        
+        // Add better error handling for render failures
+        window.addEventListener('error', function(event) {
+            if (event.message && event.message.includes('Mermaid')) {
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'Mermaid Error: ' + event.message;
+            }
+        });
+    </script>
+</body>
+</html>

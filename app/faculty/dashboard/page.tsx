@@ -294,10 +294,18 @@ export default function FacultyDashboard() {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch("/api/faculty/dashboard");
+        
+        // Better error handling for the API call
+        const response = await fetch("/api/faculty/dashboard", {
+          headers: {
+            'Cache-Control': 'no-cache'
+          }
+        });
         
         if (!response.ok) {
-          throw new Error(`Error: ${response.status} - ${await response.text()}`);
+          const errorText = await response.text();
+          console.error(`API Error (${response.status}):`, errorText);
+          throw new Error(`Failed to load dashboard data (${response.status})`);
         }
         
         const data = await response.json();

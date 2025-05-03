@@ -1,41 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
-import { cookies } from 'next/headers';
-import { getSessionUser } from '@/lib/session-utils';
+import { getUserFromToken } from '@/lib/jwt-utils';
 
 const prisma = new PrismaClient();
 
 export async function GET(req: NextRequest) {
   console.log('Faculty dashboard API called');
   try {
-    // Get the current user from session
-    let user;
+    // Get the current user directly from the JWT token
+    const user = await getUserFromToken(req);
     
-    try {
-      user = await getSessionUser(req);
-    } catch (sessionError) {
-      console.error('Session fetch failed:', sessionError);
-      
-      // Fallback to direct cookie parsing
-      const token = req.cookies.get('auth-token')?.value;
-      if (!token) {
-        return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-      }
-      
-      // Try to get user directly from database
-      user = await prisma.user.findFirst({
-        where: {
-          // This is where you'd decode the token and find the user
-          // For now, just return an error
-        }
-      });
-      
-      if (!user) {
-        return NextResponse.json({ message: 'Authentication required' }, { status: 401 });
-      }
-    }
-    
-    console.log('Session user:', user ? `ID: ${user.id}, Role: ${user.role}` : 'Not found');
+    console.log('User from token:', user ? `ID: ${user.id}, Role: ${user.role}` : 'Not found');
     
     if (!user) {
       return NextResponse.json({ message: 'Authentication required' }, { status: 401 });

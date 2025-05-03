@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScholarSync PERT Chart</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        #chart-container {
+            background-color: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            width: 80%;
+            max-width: 1200px;
+        }
+
+        .mermaid {
+            width: 100%;
+            height: auto;
+        }
+
+        #download-btn {
+            background-color: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        #download-btn:hover {
+            background-color: #0284c7;
+        }
+
+        #error-message {
+            color: #ef4444;
+            margin-bottom: 10px;
+            font-weight: bold;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="chart-container">
+        <div id="error-message">Error rendering chart. Please check syntax.</div>
+        <div class="mermaid" id="mermaid-chart">
+            %%{init: {
+                'theme': 'base',
+                'themeVariables': {
+                    'primaryColor': '#0ea5e9',
+                    'primaryTextColor': '#ffffff',
+                    'secondaryColor': '#3b82f6',
+                    'secondaryTextColor': '#ffffff',
+                    'tertiaryColor': '#22d3ee',
+                    'tertiaryTextColor': '#1e293b',
+                    'lineColor': '#64748b',
+                    'fontFamily': 'Arial',
+                    'fontSize': '14px',
+                    'nodeBorder': '#0284c7',
+                    'clusterBkg': '#f8fafc',
+                    'clusterBorder': '#e2e8f0'
+                },
+                'flowchart': {
+                    'curve': 'basis',
+                    'nodeSpacing': 30,
+                    'rankSpacing': 50
+                }
+            }}%%
+            flowchart LR
+                A["Requirements Analysis<br/>Duration: 2 weeks"] --> B["Database Design<br/>Duration: 2 weeks"]
+                A --> C["UI/UX Design<br/>Duration: 3 weeks"]
+                B --> D["Backend Development<br/>Duration: 4 weeks"]
+                C --> E["Frontend Development<br/>Duration: 4 weeks"]
+                D --> F["API Integration<br/>Duration: 2 weeks"]
+                E --> F
+                F --> G["Testing<br/>Duration: 3 weeks"]
+                G --> H["Deployment<br/>Duration: 1 week"]
+                H --> I["Documentation<br/>Duration: 2 weeks"]
+
+                classDef startNode fill:#22d3ee,stroke:#0284c7,stroke-width:2px,color:#1e293b
+                classDef endNode fill:#22d3ee,stroke:#0284c7,stroke-width:2px,color:#1e293b
+                classDef taskNode fill:#f8fafc,stroke:#64748b,stroke-width:1px,color:#1e293b
+
+                class A startNode
+                class I endNode
+                class B,C,D,E,F,G,H taskNode
+        </div>
+    </div>
+    <button id="download-btn">Download as PNG</button>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            securityLevel: 'loose',
+            logLevel: 1,
+            errorHandler: function(error) {
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'Mermaid Error: ' + error;
+                console.error('Mermaid error:', error);
+                return true;
+            }
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            try {
+                mermaid.init(undefined, document.querySelector('.mermaid'));
+            } catch (error) {
+                document.getElementById('error-message').style.display = 'block';
+                document.getElementById('error-message').textContent = 'Initialization Error: ' + error.message;
+                console.error('Initialization error:', error);
+            }
+        });
+
+        document.getElementById('download-btn').addEventListener('click', function() {
+            html2canvas(document.getElementById('chart-container')).then(function(canvas) {
+                var link = document.createElement('a');
+                link.href = canvas.toDataURL('image/png');
+                link.download = 'scholarsync_pert_chart.png';
+                link.click();
+            });
+        });
+    </script>
+</body>
+</html>
