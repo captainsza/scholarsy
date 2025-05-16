@@ -101,7 +101,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     { icon: BookOpen, label: "Courses", path: "/admin/courses" },
     { icon: Bell, label: "Notices", path: "/admin/notices" },
     { icon: Calendar, label: "Schedule", path: "/admin/schedule" },
-    { icon: Settings, label: "Settings", path: "/admin/settings" },
   ];
 
   return (
@@ -220,10 +219,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <User className="h-4 w-4 mr-2 text-cyan-600" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/admin/settings")} className="cursor-pointer">
-                    <Settings className="h-4 w-4 mr-2 text-cyan-600" />
-                    Settings
-                  </DropdownMenuItem>
+             
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setIsLogoutDialogOpen(true)}

@@ -106,7 +106,6 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
     },
     { icon: FileText, label: "Assignments", path: "/student/assignments" },
     { icon: Bell, label: "Notices", path: "/student/notices" },
-    { icon: Settings, label: "Settings", path: "/student/settings" },
   ];
 
   return (
@@ -227,10 +226,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
                     <User className="h-4 w-4 mr-2 text-cyan-600" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/student/settings")} className="cursor-pointer">
-                    <Settings className="h-4 w-4 mr-2 text-cyan-600" />
-                    Settings
-                  </DropdownMenuItem>
+           
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setIsLogoutDialogOpen(true)}

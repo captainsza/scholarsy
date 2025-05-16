@@ -207,31 +207,7 @@ export default function AdminStudentsPage() {
               Manage student records, enrollments, and academic information
             </p>
           </div>
-          <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={() => {}}
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={() => {}}
-            >
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
-            <Button 
-              onClick={handleAddStudent}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Student
-            </Button>
-          </div>
+          
         </div>
 
         <Card className="mb-6">

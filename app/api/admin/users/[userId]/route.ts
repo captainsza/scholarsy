@@ -38,11 +38,7 @@ export async function GET(
             state: true,
             country: true,
             pincode: true,
-            sectionEnrollments: {
-              include: {
-                section: true
-              }
-            }
+            // Remove reference to sectionEnrollments
           }
         },
         faculty: {
@@ -51,16 +47,8 @@ export async function GET(
             department: true,
             subjects: {
               include: {
-                section: {
-                  select: {
-                    name: true,
-                    _count: {
-                      select: {
-                        enrollments: true
-                      }
-                    }
-                  }
-                }
+                course: true, // Replace section with course
+                // Remove section reference
               }
             }
           }
@@ -161,10 +149,11 @@ export async function PUT(
 // Delete a user
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { userId: string } }
+  context: { params: { userId: string } }
 ) {
   try {
-    const userId = params.userId;
+    // Properly access the userId from context.params
+    const userId = context.params.userId;
     
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
@@ -187,18 +176,22 @@ export async function DELETE(
     await prisma.$transaction(async (tx) => {
       // Delete role-specific data first
       if (existingUser.student) {
-        // Delete student-related data (enrollments, attendance, grades, etc.)
-        await tx.sectionEnrollment.deleteMany({
-          where: { studentId: existingUser.student.id }
-        });
+        // Check if the model exists in Prisma client before accessing
+        // Removed sectionEnrollment references
         
-        await tx.subjectAttendance.deleteMany({
-          where: { studentId: existingUser.student.id }
-        });
+        // Delete attendance records if attendance model exists
+        if ('subjectAttendance' in tx) {
+          await tx.subjectAttendance.deleteMany({
+            where: { studentId: existingUser.student.id }
+          });
+        }
         
-        await tx.assessmentMark.deleteMany({
-          where: { studentId: existingUser.student.id }
-        });
+        // Delete assessment marks if assessmentMark model exists
+        if ('assessmentMark' in tx) {
+          await tx.assessmentMark.deleteMany({
+            where: { studentId: existingUser.student.id }
+          });
+        }
         
         // Then delete the student record
         await tx.student.delete({
@@ -221,14 +214,27 @@ export async function DELETE(
       
       if (existingUser.admin) {
         // Reassign approvals to another admin if necessary
-        await tx.approval.deleteMany({
-          where: { adminId: existingUser.admin.id }
-        });
+        if ('approval' in tx) {
+          await tx.approval.deleteMany({
+            where: { adminId: existingUser.admin.id }
+          });
+        }
         
         await tx.admin.delete({
           where: { id: existingUser.admin.id }
         });
       }
+      
+      // Important: Delete ALL approvals related to this user (both as admin and as subject)
+      // This addresses the ApprovalToUser constraint violation
+      await tx.approval.deleteMany({
+        where: {
+          OR: [
+            { adminId: userId },
+            { userId: userId }
+          ]
+        }
+      });
       
       // Delete profile
       await tx.profile.deleteMany({
@@ -247,7 +253,7 @@ export async function DELETE(
   } catch (error) {
     console.error("Failed to delete user:", error);
     return NextResponse.json(
-      { message: "Failed to delete user" },
+      { message: "Failed to delete user", error: (error as any).message },
       { status: 500 }
     );
   } finally {

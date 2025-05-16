@@ -204,31 +204,7 @@ export default function AdminFacultyPage() {
               Manage faculty, teaching assignments, and departmental organization
             </p>
           </div>
-          <div className="mt-4 md:mt-0 flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => {}}
-            >
-              <Download className="h-4 w-4" />
-              Export
-            </Button>
-            <Button
-              variant="outline"
-              className="flex items-center gap-2"
-              onClick={() => {}}
-            >
-              <Upload className="h-4 w-4" />
-              Import
-            </Button>
-            <Button
-              onClick={handleAddFaculty}
-              className="flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Faculty
-            </Button>
-          </div>
+ 
         </div>
 
         <Card className="mb-6">

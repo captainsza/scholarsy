@@ -102,7 +102,6 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
     { icon: PenTool, label: "Grades", path: "/faculty/grades" },
     { icon: Calendar, label: "Schedule", path: "/faculty/schedule" },
     { icon: Bell, label: "Notices", path: "/faculty/notices" },
-    { icon: Settings, label: "Settings", path: "/faculty/settings" },
   ];
 
   return (
@@ -221,10 +220,7 @@ export default function FacultyLayout({ children }: { children: React.ReactNode 
                     <User className="h-4 w-4 mr-2 text-indigo-600" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => router.push("/faculty/settings")} className="cursor-pointer">
-                    <Settings className="h-4 w-4 mr-2 text-indigo-600" />
-                    Settings
-                  </DropdownMenuItem>
+              
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={() => setIsLogoutDialogOpen(true)}
