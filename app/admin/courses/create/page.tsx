@@ -104,6 +104,17 @@ export default function CreateCoursePage() {
     e.preventDefault();
     setLoading(true);
 
+    // Update validation to not require code field
+    if (!formData.name || !formData.branch || !formData.year || !formData.semester) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields (name, branch, year, and semester)",
+        variant: "destructive",
+      });
+      setLoading(false);
+      return;
+    }
+
     try {
       const creditsValue = formData.credits ? parseInt(formData.credits, 10) : null;
 
@@ -113,30 +124,42 @@ export default function CreateCoursePage() {
         facultyId: subject.facultyId === "none" ? null : subject.facultyId,
       }));
 
+      // Prepare the payload - explicitly including only the fields we want
+      const payload = {
+        name: formData.name,
+        branch: formData.branch,
+        year: formData.year,
+        semester: formData.semester,
+        credits: creditsValue,
+        description: formData.description,
+        facultyId: formData.facultyId === "none" ? null : formData.facultyId,
+        subjects: processedSubjects,
+      };
+      
+      // Debug logging
+      console.log("Sending course data:", payload);
+
       const response = await fetch("/api/admin/courses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          ...formData,
-          credits: creditsValue,
-          facultyId: formData.facultyId === "none" ? null : formData.facultyId,
-          subjects: processedSubjects,
-        }),
+        body: JSON.stringify(payload),
       });
 
-      if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Course created successfully with subjects",
-        });
-        router.push("/admin/courses");
-      } else {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to create course");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("API Error Response:", errorData);
+        throw new Error(errorData.message || "Failed to create course");
       }
+
+      toast({
+        title: "Success",
+        description: "Course created successfully with subjects",
+      });
+      router.push("/admin/courses");
     } catch (error: any) {
+      console.error("Course creation error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create course",

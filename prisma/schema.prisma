@@ -234,6 +234,7 @@ model Course {
   branch        String
   year          String
   semester      String
+  code          String?       // Changed from 'String? @unique' to 'String?'
   credits       Int?
   description   String?
   registrations Registration[]

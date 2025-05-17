@@ -13,6 +13,7 @@ export async function GET(req: NextRequest) {
         _count: {
           select: { 
             registrations: true,
+            subjects: true, // Add this line to count subjects
           }
         },
         faculty: {
@@ -67,10 +68,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
     }
     
-    // Get course data from request body
+    // Get course data from request body but explicitly exclude code
     const { name, branch, year, semester, credits, description, facultyId, subjects } = await req.json();
     
-    // Validate required fields
+    // Validate required fields without requiring code
     if (!name || !branch || !year || !semester) {
       return NextResponse.json(
         { message: 'Course name, branch, year and semester are required' }, 
@@ -80,7 +81,7 @@ export async function POST(req: NextRequest) {
     
     // Create course with subjects in a transaction
     const result = await prisma.$transaction(async (tx) => {
-      // Create the course first
+      // Create the course first - explicitly specify only the fields we want
       const course = await tx.course.create({
         data: {
           name,

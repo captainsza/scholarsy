@@ -10,7 +10,7 @@ import LoadingSpinner from "@/components/ui/LoadingSpinner";
 import { DownloadIcon, FilterIcon, PlusIcon } from "lucide-react";
 
 export default function CoursesPage() {
-  const [courses, setCourses] = useState([]);
+  const [courses, setCourses] = useState<any[]>([]); // Use any[] or a more specific type after transformation
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const router = useRouter();
@@ -23,7 +23,12 @@ export default function CoursesPage() {
         if (!response.ok) throw new Error("Failed to fetch courses");
         
         const data = await response.json();
-        setCourses(data.courses);
+        // Transform courses to include subjectsCount at the top level
+        const transformedCourses = data.courses.map((course: any) => ({
+          ...course,
+          subjectsCount: course._count?.subjects || 0,
+        }));
+        setCourses(transformedCourses);
       } catch (err) {
         setError("Failed to load courses. Please try again.");
         console.error(err);
@@ -74,7 +79,7 @@ export default function CoursesPage() {
             <p className="text-red-700">{error}</p>
           </div>
         ) : (
-          <CourseList courses={courses} />
+          <CourseList courses={courses} loading={loading} />
         )}
       </div>
     </AdminLayout>
