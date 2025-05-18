@@ -53,9 +53,9 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
   const [subjectId, setSubjectId] = useState<string>("");
   const { user } = useAuth();
   const router = useRouter();
-  const [subject, setSubject] = useState<any>(null);
+  const [subject, setSubject] = useState<any>(null); // This will hold subjectData from API
   const [attendanceStats, setAttendanceStats] = useState<any>(null);
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]); // This will hold the list of student objects
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>("");
   const [selectedDate, setSelectedDate] = useState<string>("all");
@@ -74,24 +74,29 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
         if (!subjectId || !user?.faculty?.id) return;
 
         setLoading(true);
+        setError(""); // Clear previous error
         const response = await fetch(
+          // The API uses facultyId from query params for an access check, token is for primary auth
           `/api/faculty/subjects/${subjectId}?facultyId=${user.faculty.id}`
         );
 
         if (!response.ok) {
-          throw new Error("Failed to fetch subject details");
+          const errorData = await response.json();
+          throw new Error(errorData.message || `Failed to fetch subject details (${response.status})`);
         }
 
-        const data = await response.json();
-        setSubject(data.subject);
+        const data = await response.json(); // data = { subject: subjectDataFromApi, attendanceStats: ... }
+        
+        if (!data.subject) {
+          throw new Error("Subject data not found in API response.");
+        }
+        
+        setSubject(data.subject); // data.subject is subjectDataFromApi
         setAttendanceStats(data.attendanceStats);
         
-        // Initialize students from the section enrollments
-        const enrolledStudents = data.subject.section.enrollments
-          .filter((enrollment: any) => enrollment.status === "ACTIVE")
-          .map((enrollment: any) => enrollment.student);
-        
-        setStudents(enrolledStudents);
+        // Use the processed students list from the API response
+        // data.subject (which is subjectDataFromApi) has a 'students' array
+        setStudents(data.subject.students || []);
 
         // Extract unique dates from attendance records
         if (data.attendanceStats?.records) {
@@ -111,10 +116,10 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
       }
     };
 
-    if (subjectId && user) {
+    if (subjectId && user?.faculty?.id) { // Ensure faculty.id is available
       fetchSubjectDetails();
     }
-  }, [subjectId, user]);
+  }, [subjectId, user, user?.faculty?.id]); // Added user.faculty.id to dependency array
 
   // Calculate attendance percentage for a student
   const calculateAttendancePercentage = (studentId: string) => {
@@ -186,7 +191,7 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
       <FacultyLayout>
         <div className="py-6 px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 p-4 rounded-md">
-            <p className="text-red-700">{error || "Subject not found"}</p>
+            <p className="text-red-700">{error || "Subject not found or access denied."}</p>
             <Button 
               onClick={() => router.back()}
               className="mt-4"
@@ -216,11 +221,12 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
               </button>
               <h1 className="text-2xl font-bold text-gray-900">Attendance Dashboard</h1>
               <Badge variant="outline" className="ml-2">
-                {subject.code}
+                {subject?.code || 'N/A'} {/* Use subject state which holds subjectDataFromApi */}
               </Badge>
             </div>
             <p className="mt-1 text-sm text-gray-500">
-              {subject.name} • {subject.section.name} • {subject.section.academicTerm}
+              {subject?.name || 'Unnamed Subject'} • {subject?.course?.name || 'N/A Course'} 
+              {subject?.course?.year && subject?.course?.semester && ` • ${subject.course.year} Year, Sem ${subject.course.semester}`}
             </p>
           </div>
 
@@ -404,11 +410,11 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
                             <TableCell>
                               <div className="flex items-center">
                                 <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm font-medium mr-2">
-                                  {record.student.user.profile.firstName[0]}
-                                  {record.student.user.profile.lastName[0]}
+                                  {record.student?.user?.profile?.firstName?.[0] || 'N'} {/* API provides student with user.profile nested in attendance records */}
+                                  {record.student?.user?.profile?.lastName?.[0] || 'A'}
                                 </div>
                                 <span>
-                                  {record.student.user.profile.firstName} {record.student.user.profile.lastName}
+                                  {record.student?.user?.profile?.firstName || 'Unknown'} {record.student?.user?.profile?.lastName || 'Student'}
                                 </span>
                               </div>
                             </TableCell>
@@ -485,10 +491,10 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {students.map((student) => {
+                        {students.map((student) => { // student here is from data.subject.students
                           // Calculate statistics for this student
                           const studentRecords = attendanceStats?.records?.filter(
-                            (record: any) => record.studentId === student.id
+                            (record: any) => record.studentId === student.id // student.id from API's student list
                           ) || [];
                           
                           const present = studentRecords.filter(
@@ -510,15 +516,16 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
                               <TableCell>
                                 <div className="flex items-center">
                                   <div className="h-8 w-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 text-sm font-medium mr-2">
-                                    {student.user.profile.firstName[0]}
-                                    {student.user.profile.lastName[0]}
+                                    {/* Derive initials from student.name (full name) */}
+                                    {student.name?.split(' ')[0]?.[0] || 'N'}
+                                    {student.name?.split(' ')[1]?.[0] || (student.name?.split(' ')[0]?.length > 1 ? student.name?.split(' ')[0]?.[1] : 'A')}
                                   </div>
                                   <div>
                                     <div>
-                                      {student.user.profile.firstName} {student.user.profile.lastName}
+                                      {student.name || 'Unknown Student'} {/* Use student.name */}
                                     </div>
                                     <div className="text-xs text-gray-500">
-                                      ID: {student.enrollmentId}
+                                      ID: {student.enrollmentId} {/* Use student.enrollmentId */}
                                     </div>
                                   </div>
                                 </div>
@@ -566,7 +573,7 @@ export default function AttendanceDashboard({ params }: AttendanceDashboardProps
                     <Users className="mx-auto h-12 w-12 text-gray-400" />
                     <h3 className="mt-2 text-sm font-medium text-gray-900">No students enrolled</h3>
                     <p className="mt-1 text-sm text-gray-500">
-                      This section doesn't have any enrolled students yet.
+                      This course doesn't have any enrolled students yet. {/* Updated message to reflect course */}
                     </p>
                   </div>
                 )}
