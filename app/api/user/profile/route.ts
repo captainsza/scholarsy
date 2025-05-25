@@ -83,7 +83,7 @@ export async function PUT(req: NextRequest) {
     }
 
     // Begin transaction for updating user data
-    const updatedUser = await prisma.$transaction(async (prisma: { profile: { update: (arg0: { where: { userId: string; }; data: any; }) => any; }; faculty: { update: (arg0: { where: { userId: string; }; data: any; }) => any; }; student: { update: (arg0: { where: { userId: string; }; data: any; }) => any; }; user: { findUnique: (arg0: { where: { id: string; }; include: { profile: boolean; faculty: boolean; student: boolean; admin: boolean; }; }) => any; }; }) => {
+    const updatedUser = await prisma.$transaction(async (prisma) => {
       // Update profile if provided
       if (data.profile) {
         await prisma.profile.update({
@@ -105,14 +105,24 @@ export async function PUT(req: NextRequest) {
         // Process date fields before sending to Prisma
         const studentData = { ...data.student };
         
-        // Convert date string to Date object if present
-        if (studentData.dob && typeof studentData.dob === 'string') {
-          // Make sure the date string is in a valid format (YYYY-MM-DD)
-          try {
-            studentData.dob = new Date(studentData.dob);
-          } catch (error) {
-            console.error('Invalid date format:', error);
-            throw new Error('Invalid date format for date of birth');
+        // Clean date fields - ensure empty string dates are converted to null or removed
+        if (studentData.dob !== undefined) {
+          if (studentData.dob === "" || studentData.dob === null) {
+            // Remove the dob field if it's empty
+            delete studentData.dob;
+          } else if (typeof studentData.dob === 'string' && studentData.dob.trim().length > 0) {
+            // Convert valid date string to Date object
+            try {
+              studentData.dob = new Date(studentData.dob);
+              // Check if the date is valid
+              if (isNaN(studentData.dob.getTime())) {
+                delete studentData.dob;
+              }
+            } catch (error) {
+              console.error('Invalid date format:', error);
+              // Remove invalid date
+              delete studentData.dob;
+            }
           }
         }
         
