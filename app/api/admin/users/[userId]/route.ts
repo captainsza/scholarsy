@@ -9,6 +9,7 @@ export async function GET(
   { params }: { params: { userId: string } }
 ) {
   try {
+    // Access userId directly without destructuring
     const userId = params.userId;
     
     const user = await prisma.user.findUnique({
@@ -90,6 +91,7 @@ export async function PUT(
   { params }: { params: { userId: string } }
 ) {
   try {
+    // Access userId directly without destructuring
     const userId = params.userId;
     const updates = await req.json();
     
@@ -98,7 +100,12 @@ export async function PUT(
     
     // Check if user exists
     const existingUser = await prisma.user.findUnique({
-      where: { id: userId }
+      where: { id: userId },
+      include: {
+        profile: true,
+        student: true,
+        faculty: true
+      }
     });
     
     if (!existingUser) {
@@ -107,17 +114,45 @@ export async function PUT(
         { status: 404 }
       );
     }
+
+    // Extract fields from profile and prepare updates
+    const profileFields = ['firstName', 'lastName', 'phone', 'profileImage'];
+    const addressFields = ['address', 'city', 'state', 'country', 'pincode', 'gender'];
     
-    // Update user data
+    // Create safe profile update with only valid fields
+    let profileUpdate: Record<string, any> = {};
+    if (safeUpdates.profile) {
+      profileFields.forEach(field => {
+        if (field in safeUpdates.profile) {
+          profileUpdate[field] = safeUpdates.profile[field];
+        }
+      });
+    }
+    
+    // Create student update with address fields and any existing student updates
+    let studentUpdate = { ...safeUpdates.student } || {};
+    
+    // Move address fields from profile to student if user is a student
+    if (existingUser.student && safeUpdates.profile) {
+      addressFields.forEach(field => {
+        if (field in safeUpdates.profile) {
+          studentUpdate[field] = safeUpdates.profile[field];
+        }
+      });
+    }
+    
+    // Update user data with correctly organized fields
     const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: {
-        ...safeUpdates,
-        profile: safeUpdates.profile ? {
-          update: safeUpdates.profile
+        email: safeUpdates.email,
+        isApproved: safeUpdates.isApproved,
+        emailVerified: safeUpdates.emailVerified,
+        profile: Object.keys(profileUpdate).length > 0 ? {
+          update: profileUpdate
         } : undefined,
-        student: safeUpdates.student ? {
-          update: safeUpdates.student
+        student: existingUser.student && Object.keys(studentUpdate).length > 0 ? {
+          update: studentUpdate
         } : undefined,
         faculty: safeUpdates.faculty ? {
           update: safeUpdates.faculty
@@ -138,7 +173,7 @@ export async function PUT(
   } catch (error) {
     console.error("Failed to update user:", error);
     return NextResponse.json(
-      { message: "Failed to update user" },
+      { message: "Failed to update user", error: (error as any).message },
       { status: 500 }
     );
   } finally {
@@ -152,7 +187,7 @@ export async function DELETE(
   context: { params: { userId: string } }
 ) {
   try {
-    // Properly access the userId from context.params
+    // Access userId directly without destructuring
     const userId = context.params.userId;
     
     // Check if user exists
