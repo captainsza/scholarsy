@@ -5,20 +5,22 @@ import { sendApprovalEmail } from "@/utils/email";
 const prisma = new PrismaClient();
 
 // Update a user's approval status
-export async function PUT(
+export async function PATCH(
   req: NextRequest,
   { params }: { params: { userId: string } }
 ) {
   try {
     const userId = params.userId;
-    const { isApproved } = await req.json();
     
-    // Check if the isApproved field is provided
-    if (isApproved === undefined) {
-      return NextResponse.json(
-        { message: "isApproved field is required" },
-        { status: 400 }
-      );
+    // Try to parse body if available, default to approving the user
+    let isApproved = true;
+    try {
+      const body = await req.json();
+      if (body && body.isApproved !== undefined) {
+        isApproved = body.isApproved;
+      }
+    } catch (e) {
+      // If no body or parsing fails, continue with default value
     }
     
     // Check if user exists
