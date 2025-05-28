@@ -176,22 +176,35 @@ export async function DELETE(
     await prisma.$transaction(async (tx) => {
       // Delete role-specific data first
       if (existingUser.student) {
-        // Check if the model exists in Prisma client before accessing
-        // Removed sectionEnrollment references
+        // Delete course enrollments first to avoid foreign key constraint violation
+        await tx.courseEnrollment.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
         
-        // Delete attendance records if attendance model exists
-        if ('subjectAttendance' in tx) {
-          await tx.subjectAttendance.deleteMany({
-            where: { studentId: existingUser.student.id }
-          });
-        }
+        // Delete other student-related records
+        await tx.subjectAttendance.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
         
-        // Delete assessment marks if assessmentMark model exists
-        if ('assessmentMark' in tx) {
-          await tx.assessmentMark.deleteMany({
-            where: { studentId: existingUser.student.id }
-          });
-        }
+        await tx.assessmentMark.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
+        
+        await tx.gradeRecord.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
+        
+        await tx.registration.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
+        
+        await tx.attendance.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
+        
+        await tx.submission.deleteMany({
+          where: { studentId: existingUser.student.id }
+        });
         
         // Then delete the student record
         await tx.student.delete({
