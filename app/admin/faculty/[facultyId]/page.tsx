@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import FacultyLayout from "@/components/layouts/FacultyLayout";
+import AdminLayout from "@/components/layouts/AdminLayout";
 import {
   Card,
   CardContent,
@@ -25,6 +25,8 @@ import {
   ClipboardList,
   GraduationCap,
   BarChart3,
+  Edit,
+  ArrowLeft,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
@@ -37,7 +39,7 @@ interface FacultyDetailPageProps {
   };
 }
 
-export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
+export default function AdminFacultyDetailPage({ params }: FacultyDetailPageProps) {
   const { facultyId } = params;
   const router = useRouter();
   const { user } = useAuth();
@@ -50,7 +52,7 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
       try {
         setLoading(true);
         setError(null);
-        const response = await fetch(`/api/faculty/${facultyId}`);
+        const response = await fetch(`/api/admin/faculty/${facultyId}`);
         
         if (!response.ok) {
           if (response.status === 404) {
@@ -80,30 +82,30 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
 
   if (loading) {
     return (
-      <FacultyLayout>
+      <AdminLayout>
         <div className="h-screen flex items-center justify-center">
           <LoadingSpinner message="Loading faculty details..." />
         </div>
-      </FacultyLayout>
+      </AdminLayout>
     );
   }
 
   if (error || !facultyData) {
     return (
-      <FacultyLayout>
+      <AdminLayout>
         <div className="py-6 px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 p-4 rounded-md">
             <p className="text-red-700">{error || "Faculty not found"}</p>
             <Button 
-              onClick={() => router.push("/faculty")}
+              onClick={() => router.push("/admin/faculty")}
               className="mt-4"
               variant="outline"
             >
-              Back to Faculty Dashboard
+              Back to Faculty Management
             </Button>
           </div>
         </div>
-      </FacultyLayout>
+      </AdminLayout>
     );
   }
 
@@ -129,28 +131,26 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
   }, {});
 
   return (
-    <FacultyLayout>
+    <AdminLayout>
       <div className="py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-start mb-6">
           <div className="flex items-center space-x-3">
-            <button 
-              onClick={() => router.back()}
-              className="text-gray-500 hover:text-gray-700"
-              aria-label="Go back"
+            <Button 
+              variant="ghost"
+              size="sm"
+              onClick={() => router.push("/admin/faculty")}
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" />
-              </svg>
-            </button>
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Back to Faculty
+            </Button>
             <h1 className="text-2xl font-bold text-gray-900">Faculty Profile</h1>
           </div>
-          {user?.role === "ADMIN" && (
-            <Button
-              onClick={() => router.push(`/admin/faculty/${facultyId}/edit`)}
-            >
-              Edit Profile
-            </Button>
-          )}
+          <Button
+            onClick={() => router.push(`/admin/faculty/${facultyId}/edit`)}
+          >
+            <Edit className="mr-2 h-4 w-4" />
+            Edit Profile
+          </Button>
         </div>
 
         {/* Faculty Details with tabs */}
@@ -213,35 +213,49 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t">
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Teaching Information</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Account Information</h4>
                       <div className="space-y-3">
-                        <div>
-                          <div className="text-xs text-gray-500">Department</div>
-                          <div className="text-sm font-semibold">{facultyData.department}</div>
-                        </div>
                         <div>
                           <div className="text-xs text-gray-500">Faculty ID</div>
                           <div className="text-sm font-mono">{facultyData.id}</div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500">Courses Teaching</div>
-                          <div className="text-sm">
-                            {facultyData.subjects?.length || 0} subjects
+                          <div className="text-xs text-gray-500">Department</div>
+                          <div className="text-sm font-semibold">{facultyData.department}</div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Email Verified</div>
+                          <div>
+                            <Badge variant={facultyData.user?.emailVerified ? "success" : "destructive"}>
+                              {facultyData.user?.emailVerified ? "Verified" : "Not Verified"}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-xs text-gray-500">Account Status</div>
+                          <div>
+                            <Badge variant={facultyData.user?.isApproved ? "success" : "destructive"}>
+                              {facultyData.user?.isApproved ? "Approved" : "Pending Approval"}
+                            </Badge>
                           </div>
                         </div>
                       </div>
                     </div>
                     
                     <div>
-                      <h4 className="text-sm font-medium text-gray-500 mb-2">Contact Information</h4>
+                      <h4 className="text-sm font-medium text-gray-500 mb-2">Teaching Information</h4>
                       <div className="space-y-3">
                         <div>
-                          <div className="text-xs text-gray-500">Email</div>
-                          <div className="text-sm">{facultyData.user?.email}</div>
+                          <div className="text-xs text-gray-500">Courses Teaching</div>
+                          <div className="text-sm">
+                            {facultyData.subjects?.length || 0} subjects
+                          </div>
                         </div>
                         <div>
-                          <div className="text-xs text-gray-500">Phone</div>
-                          <div className="text-sm">{facultyData.user?.profile?.phone || "Not provided"}</div>
+                          <div className="text-xs text-gray-500">Created At</div>
+                          <div className="text-sm">
+                            {new Date(facultyData.user?.createdAt).toLocaleDateString()}
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -272,16 +286,6 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
                         </div>
                       </div>
                       <Progress value={Math.min((facultyData.totalStudents || 0) / 2, 100)} className="h-2" />
-                    </div>
-                    
-                    <div>
-                      <div className="flex items-center justify-between mb-1">
-                        <div className="text-sm font-medium">Teaching Hours</div>
-                        <div className="text-sm text-gray-500">
-                          {facultyData.totalHours || 0} hrs/week
-                        </div>
-                      </div>
-                      <Progress value={Math.min((facultyData.totalHours || 0) * 5, 100)} className="h-2" />
                     </div>
                     
                     <div className="pt-4 border-t mt-4">
@@ -567,6 +571,6 @@ export default function FacultyDetailPage({ params }: FacultyDetailPageProps) {
           </TabsContent>
         </Tabs>
       </div>
-    </FacultyLayout>
+    </AdminLayout>
   );
 }

@@ -55,9 +55,16 @@ interface StudentListProps {
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  deleteLoading?: string | null;
 }
 
-export default function StudentList({ students, onView, onEdit, onDelete }: StudentListProps) {
+export default function StudentList({ 
+  students, 
+  onView, 
+  onEdit, 
+  onDelete, 
+  deleteLoading 
+}: StudentListProps) {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   
@@ -105,6 +112,8 @@ export default function StudentList({ students, onView, onEdit, onDelete }: Stud
           ) : (
             paginatedStudents.map((student) => {
               const status = getStatusBadge(student.academicStatus);
+              const isDeleting = deleteLoading === student.id;
+              
               return (
                 <TableRow key={student.id}>
                   <TableCell className="pl-4 font-medium flex items-center gap-3">
@@ -139,7 +148,11 @@ export default function StudentList({ students, onView, onEdit, onDelete }: Stud
                   <TableCell className="text-right pr-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                          disabled={isDeleting}
+                        >
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -158,15 +171,14 @@ export default function StudentList({ students, onView, onEdit, onDelete }: Stud
                           <UserPlus className="mr-2 h-4 w-4" />
                           <span>Manage enrollments</span>
                         </DropdownMenuItem>
-
-                     
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           onClick={() => onDelete(student.id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={isDeleting}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete student</span>
+                          <span>{isDeleting ? "Deleting..." : "Delete student"}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>

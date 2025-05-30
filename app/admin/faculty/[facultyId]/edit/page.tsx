@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import FacultyLayout from "@/components/layouts/FacultyLayout";
+import AdminLayout from "@/components/layouts/AdminLayout";
 import {
   Card,
   CardContent,
@@ -71,7 +71,7 @@ const facultySchema = z.object({
   }),
 });
 
-export default function FacultyEditPage({ params }: FacultyEditPageProps) {
+export default function AdminFacultyEditPage({ params }: FacultyEditPageProps) {
   const { facultyId } = params;
   const router = useRouter();
   const { user } = useAuth();
@@ -225,23 +225,23 @@ export default function FacultyEditPage({ params }: FacultyEditPageProps) {
 
   if (loading) {
     return (
-      <FacultyLayout>
+      <AdminLayout>
         <div className="h-screen flex items-center justify-center">
           <LoadingSpinner message="Loading faculty details..." />
         </div>
-      </FacultyLayout>
+      </AdminLayout>
     );
   }
 
   return (
-    <FacultyLayout>
+    <AdminLayout>
       <div className="py-6 px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center mb-6">
           <div className="flex items-center gap-2">
             <Button 
               variant="ghost"
               size="sm"
-              onClick={() => router.push(`/faculty/${facultyId}`)}
+              onClick={() => router.push(`/admin/faculty/${facultyId}`)}
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               Back
@@ -251,7 +251,7 @@ export default function FacultyEditPage({ params }: FacultyEditPageProps) {
           <div className="flex gap-2">
             <Button
               variant="outline"
-              onClick={() => router.push(`/faculty/${facultyId}`)}
+              onClick={() => router.push(`/admin/faculty/${facultyId}`)}
             >
               Cancel
             </Button>
@@ -643,7 +643,7 @@ export default function FacultyEditPage({ params }: FacultyEditPageProps) {
             <div className="mt-6 flex justify-end gap-3">
               <Button
                 variant="outline"
-                onClick={() => router.push(`/faculty/${facultyId}`)}
+                onClick={() => router.push(`/admin/faculty/${facultyId}`)}
               >
                 Cancel
               </Button>
@@ -664,6 +664,6 @@ export default function FacultyEditPage({ params }: FacultyEditPageProps) {
           </form>
         </Form>
       </div>
-    </FacultyLayout>
+    </AdminLayout>
   );
 }

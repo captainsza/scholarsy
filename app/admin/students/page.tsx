@@ -71,6 +71,9 @@ export default function AdminStudentsPage() {
   // Active filters count
   const [activeFilterCount, setActiveFilterCount] = useState(0);
 
+  // Add delete state
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
+
   useEffect(() => {
     fetchStudents();
     fetchCourses();
@@ -194,6 +197,43 @@ export default function AdminStudentsPage() {
       case 'newest': return 'Newest First';
       case 'oldest': return 'Oldest First';
       default: return 'Sort By';
+    }
+  };
+
+  // Add delete handler
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!confirm("Are you sure you want to delete this student? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(studentId);
+      
+      const response = await fetch(`/api/admin/students/${studentId}`, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete student");
+      }
+      
+      // Remove the student from the local state
+      setStudents(students.filter((student: any) => student.id !== studentId));
+      
+      toast({
+        title: "Success",
+        description: "Student deleted successfully",
+      });
+    } catch (error: any) {
+      console.error("Error deleting student:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete student",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -476,7 +516,8 @@ export default function AdminStudentsPage() {
                 students={filteredStudents} 
                 onView={(id) => router.push(`/admin/students/${id}`)}
                 onEdit={(id) => router.push(`/admin/students/${id}/edit`)}
-                onDelete={() => {}} // Add delete functionality if needed
+                onDelete={handleDeleteStudent}
+                deleteLoading={deleteLoading}
               />
             )}
           </CardContent>

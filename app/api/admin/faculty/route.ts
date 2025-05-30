@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
     const statusFilter = searchParams.get('status');
     const workloadFilter = searchParams.get('workload');
     const sortOption = searchParams.get('sort') || 'name_asc';
+    const searchQuery = searchParams.get('search') || '';
     
     // Base query
     const where: any = {};
@@ -40,6 +41,28 @@ export async function GET(req: NextRequest) {
     // Apply department filter
     if (departmentFilter && departmentFilter !== 'all') {
       where.department = departmentFilter;
+    }
+    
+    // Apply search query
+    if (searchQuery) {
+      where.OR = [
+        { department: { contains: searchQuery, mode: 'insensitive' } },
+        { 
+          user: { 
+            email: { contains: searchQuery, mode: 'insensitive' } 
+          } 
+        },
+        { 
+          user: { 
+            profile: { 
+              OR: [
+                { firstName: { contains: searchQuery, mode: 'insensitive' } },
+                { lastName: { contains: searchQuery, mode: 'insensitive' } }
+              ]
+            } 
+          } 
+        }
+      ];
     }
     
     // Build orderBy based on sort option
@@ -95,10 +118,41 @@ export async function GET(req: NextRequest) {
             profile: true
           }
         },
-        courses: true,
-        subjects: true,
-        // Include workload data if available
-        workload: true
+        courses: {
+          select: {
+            id: true,
+            name: true,
+            branch: true,
+            year: true,
+            semester: true,
+            _count: {
+              select: {
+                enrollments: true
+              }
+            }
+          }
+        },
+        subjects: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            creditHours: true,
+            course: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        },
+        workload: true,
+        _count: {
+          select: {
+            subjects: true,
+            courses: true
+          }
+        }
       },
       orderBy
     });
@@ -120,18 +174,29 @@ export async function GET(req: NextRequest) {
       );
     }
     
+    // Filter by status (based on user approval)
+    if (statusFilter && statusFilter !== 'all') {
+      filteredFacultyList = filteredFacultyList.filter(faculty => {
+        if (statusFilter === 'approved') return faculty.user.isApproved;
+        if (statusFilter === 'pending') return !faculty.user.isApproved;
+        if (statusFilter === 'verified') return faculty.user.emailVerified;
+        if (statusFilter === 'unverified') return !faculty.user.emailVerified;
+        return true;
+      });
+    }
+    
     // Filter by workload
     if (workloadFilter && workloadFilter !== 'all') {
       filteredFacultyList = filteredFacultyList.filter(faculty => {
-        const courseCount = faculty.courses.length;
+        const subjectCount = faculty._count.subjects;
         
         switch (workloadFilter) {
           case 'low':
-            return courseCount >= 0 && courseCount <= 3;
+            return subjectCount >= 0 && subjectCount <= 3;
           case 'medium':
-            return courseCount >= 4 && courseCount <= 6;
+            return subjectCount >= 4 && subjectCount <= 6;
           case 'high':
-            return courseCount >= 7;
+            return subjectCount >= 7;
           default:
             return true;
         }
@@ -141,8 +206,8 @@ export async function GET(req: NextRequest) {
     // Apply workload-based sorting if needed
     if (sortOption === 'workload_asc' || sortOption === 'workload_desc') {
       filteredFacultyList.sort((a, b) => {
-        const aWorkload = a.courses.length;
-        const bWorkload = b.courses.length;
+        const aWorkload = a._count.subjects;
+        const bWorkload = b._count.subjects;
         
         return sortOption === 'workload_asc' 
           ? aWorkload - bWorkload 
@@ -150,21 +215,26 @@ export async function GET(req: NextRequest) {
       });
     }
     
-    // Transform for frontend - exclude sensitive data
-    const faculty = filteredFacultyList.map(f => ({
-      id: f.id,
-      name: f.user.profile 
-        ? `${f.user.profile.firstName} ${f.user.profile.lastName}` 
-        : `Faculty ID: ${f.id}`,
-      email: f.user.email,
-      department: f.department,
-      user: f.user,
-      courses: f.courses,
-      subjects: f.subjects,
-      subjectCount: f.subjects.length,
-      courseCount: f.courses.length,
-      workload: f.workload
-    }));
+    // Transform for frontend - exclude sensitive data and add computed fields
+    const faculty = filteredFacultyList.map(f => {
+      const totalStudents = f.courses.reduce((sum, course) => sum + course._count.enrollments, 0);
+      
+      return {
+        id: f.id,
+        name: f.user.profile 
+          ? `${f.user.profile.firstName} ${f.user.profile.lastName}` 
+          : `Faculty ID: ${f.id}`,
+        email: f.user.email,
+        department: f.department,
+        user: f.user,
+        courses: f.courses,
+        subjects: f.subjects,
+        subjectCount: f._count.subjects,
+        courseCount: f._count.courses,
+        totalStudents,
+        workload: f.workload
+      };
+    });
     
     return NextResponse.json({ faculty });
   } catch (error: any) {
@@ -237,6 +307,13 @@ export async function POST(req: NextRequest) {
         userId,
         department,
       },
+      include: {
+        user: {
+          include: {
+            profile: true
+          }
+        }
+      }
     });
     
     return NextResponse.json(faculty);

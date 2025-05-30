@@ -10,6 +10,8 @@ export async function GET(
   { params }: { params: { facultyId: string } }
 ) {
   try {
+    const facultyId = params.facultyId;
+    
     // Verify authentication
     const token = (await cookies()).get('auth-token')?.value;
     
@@ -33,14 +35,14 @@ export async function GET(
         where: { userId: decoded.id },
       });
       
-      if (!requestingFaculty || requestingFaculty.id !== params.facultyId) {
+      if (!requestingFaculty || requestingFaculty.id !== facultyId) {
         return NextResponse.json({ message: 'Access denied' }, { status: 403 });
       }
     }
     
     // Fetch the faculty record with all relevant related data
     const faculty = await prisma.faculty.findUnique({
-      where: { id: params.facultyId },
+      where: { id: facultyId },
       include: {
         user: {
           select: {
@@ -55,7 +57,35 @@ export async function GET(
         },
         subjects: {
           include: {
-            course: true,
+            course: {
+              select: {
+                id: true,
+                name: true,
+                branch: true,
+                year: true,
+                semester: true,
+                _count: {
+                  select: {
+                    enrollments: true
+                  }
+                }
+              }
+            },
+            assessments: {
+              select: {
+                id: true,
+                title: true,
+                type: true,
+                dueDate: true,
+                maxMarks: true
+              }
+            },
+            _count: {
+              select: {
+                attendances: true,
+                assessments: true
+              }
+            }
           },
         },
         courses: {
@@ -73,10 +103,29 @@ export async function GET(
                 },
               },
             },
+            subjects: {
+              select: {
+                id: true,
+                name: true,
+                code: true,
+                creditHours: true
+              }
+            },
+            _count: {
+              select: {
+                enrollments: true,
+                subjects: true
+              }
+            }
           },
         },
         workload: true,
-        leaves: true,
+        leaves: {
+          orderBy: {
+            createdAt: 'desc'
+          },
+          take: 5
+        },
         schedules: {
           include: {
             room: true,
@@ -88,8 +137,37 @@ export async function GET(
     if (!faculty) {
       return NextResponse.json({ message: 'Faculty not found' }, { status: 404 });
     }
+
+    // Calculate additional statistics
+    const totalStudents = faculty.courses.reduce((sum, course) => sum + course._count.enrollments, 0);
+    const totalSubjects = faculty.subjects.length;
+    const totalCourses = faculty.courses.length;
     
-    return NextResponse.json({ faculty });
+    // Calculate workload statistics
+    const currentWorkload = faculty.subjects.reduce((sum, subject) => sum + (subject.creditHours || 0), 0);
+    
+    // Get upcoming classes (next 7 days)
+    const today = new Date();
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+    
+    const upcomingClasses = faculty.schedules.filter(schedule => {
+      // This would need proper date calculation based on dayOfWeek
+      // For now, just return all schedules
+      return true;
+    });
+
+    // Add calculated data to faculty object
+    const facultyWithStats = {
+      ...faculty,
+      totalStudents,
+      totalSubjects,
+      totalCourses,
+      currentWorkload,
+      upcomingClasses,
+    };
+    
+    return NextResponse.json({ faculty: facultyWithStats });
   } catch (error: any) {
     console.error('Faculty fetch error:', error);
     return NextResponse.json(
@@ -106,6 +184,8 @@ export async function PUT(
   { params }: { params: { facultyId: string } }
 ) {
   try {
+    const facultyId = params.facultyId;
+    
     // Verify authentication
     const token = (await cookies()).get('auth-token')?.value;
     
@@ -123,44 +203,52 @@ export async function PUT(
       return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
     }
     
-    const { department, ...userData } = await req.json();
+    const updateData = await req.json();
     
-    // Update the faculty department
-    const updatedFaculty = await prisma.faculty.update({
-      where: { id: params.facultyId },
-      data: { department },
-      include: {
-        user: {
-          include: {
-            profile: true,
-          },
+    // Extract user and profile data
+    const { user, ...facultyData } = updateData;
+    
+    // Update in transaction to ensure data consistency
+    const updatedFaculty = await prisma.$transaction(async (tx) => {
+      // Update faculty record
+      const faculty = await tx.faculty.update({
+        where: { id: facultyId },
+        data: {
+          department: facultyData.department,
         },
-      },
-    });
-    
-    // If user data was provided, update the related user profile
-    if (userData && Object.keys(userData).length > 0) {
-      // Extract profile data
-      const { firstName, lastName, phone, profileImage } = userData;
+      });
       
-      // Update the profile if any profile data was provided
-      if (firstName || lastName || phone || profileImage) {
-        const profileData: any = {};
-        if (firstName !== undefined) profileData.firstName = firstName;
-        if (lastName !== undefined) profileData.lastName = lastName;
-        if (phone !== undefined) profileData.phone = phone;
-        if (profileImage !== undefined) profileData.profileImage = profileImage;
-        
-        await prisma.profile.update({
-          where: { userId: updatedFaculty.userId },
-          data: profileData,
+      // Update user profile if provided
+      if (user && user.profile) {
+        await tx.profile.update({
+          where: { userId: faculty.userId },
+          data: {
+            firstName: user.profile.firstName,
+            lastName: user.profile.lastName,
+            phone: user.profile.phone,
+            profileImage: user.profile.profileImage,
+          },
         });
       }
-    }
+      
+      // Update user account settings if provided (admin only)
+      if (user) {
+        await tx.user.update({
+          where: { id: faculty.userId },
+          data: {
+            email: user.email,
+            isApproved: user.isApproved,
+            emailVerified: user.emailVerified,
+          },
+        });
+      }
+      
+      return faculty;
+    });
     
-    // Fetch the updated faculty record with the updated user profile
+    // Fetch updated faculty with all relations
     const faculty = await prisma.faculty.findUnique({
-      where: { id: params.facultyId },
+      where: { id: facultyId },
       include: {
         user: {
           include: {
@@ -187,6 +275,8 @@ export async function DELETE(
   { params }: { params: { facultyId: string } }
 ) {
   try {
+    const facultyId = params.facultyId;
+    
     // Verify authentication
     const token = (await cookies()).get('auth-token')?.value;
     
@@ -204,25 +294,82 @@ export async function DELETE(
       return NextResponse.json({ message: 'Admin access required' }, { status: 403 });
     }
     
-    // First fetch the faculty record to get the user ID
+    // Get the faculty to find the user ID
     const faculty = await prisma.faculty.findUnique({
-      where: { id: params.facultyId },
+      where: { id: facultyId },
+      include: {
+        user: true,
+      }
     });
-    
+
     if (!faculty) {
       return NextResponse.json({ message: 'Faculty not found' }, { status: 404 });
     }
-    
-    // Delete the faculty record
-    await prisma.faculty.delete({
-      where: { id: params.facultyId },
+
+    // Delete faculty and all related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Remove faculty assignment from subjects
+      await tx.subject.updateMany({
+        where: { facultyId: facultyId },
+        data: { facultyId: null }
+      });
+      
+      // Remove faculty assignment from courses
+      await tx.course.updateMany({
+        where: { facultyId: facultyId },
+        data: { facultyId: null }
+      });
+      
+      // Delete faculty-related records
+      await tx.gradeRecord.deleteMany({
+        where: { facultyId: facultyId }
+      });
+      
+      await tx.workload.deleteMany({
+        where: { facultyId: facultyId }
+      });
+      
+      await tx.leave.deleteMany({
+        where: { facultyId: facultyId }
+      });
+      
+      await tx.schedule.deleteMany({
+        where: { facultyId: facultyId }
+      });
+
+      // Delete the faculty record
+      await tx.faculty.delete({
+        where: { id: facultyId }
+      });
+
+      // Delete user profile
+      await tx.profile.deleteMany({
+        where: { userId: faculty.userId }
+      });
+
+      // Delete approvals related to this user
+      await tx.approval.deleteMany({
+        where: {
+          OR: [
+            { adminId: faculty.userId },
+            { userId: faculty.userId }
+          ]
+        }
+      });
+
+      // Finally, delete the user account
+      await tx.user.delete({
+        where: { id: faculty.userId }
+      });
     });
-    
-    return NextResponse.json({ message: 'Faculty deleted successfully' });
+
+    return NextResponse.json({ 
+      message: 'Faculty and associated user account deleted successfully' 
+    });
   } catch (error: any) {
     console.error('Faculty deletion error:', error);
     return NextResponse.json(
-      { message: 'Failed to delete faculty' }, 
+      { message: 'Failed to delete faculty', error: error.message },
       { status: 500 }
     );
   } finally {

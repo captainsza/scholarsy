@@ -70,6 +70,7 @@ export default function AdminFacultyPage() {
   
   // Active filters count
   const [activeFilterCount, setActiveFilterCount] = useState(0);
+  const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
 
   useEffect(() => {
     fetchFaculty();
@@ -191,6 +192,43 @@ export default function AdminFacultyPage() {
       case 'newest': return 'Newest First';
       case 'oldest': return 'Oldest First';
       default: return 'Sort By';
+    }
+  };
+
+  // Add delete handler
+  const handleDeleteFaculty = async (facultyId: string) => {
+    if (!confirm("Are you sure you want to delete this faculty member? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeleteLoading(facultyId);
+      
+      const response = await fetch(`/api/admin/faculty/${facultyId}`, {
+        method: "DELETE",
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to delete faculty member");
+      }
+      
+      // Remove the faculty member from the local state
+      setFaculty(faculty.filter((member: any) => member.id !== facultyId));
+      
+      toast({
+        title: "Success",
+        description: "Faculty member deleted successfully",
+      });
+    } catch (error: any) {
+      console.error("Error deleting faculty member:", error);
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete faculty member",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(null);
     }
   };
 
@@ -479,7 +517,8 @@ export default function AdminFacultyPage() {
                 faculty={filteredFaculty}
                 onView={(id) => router.push(`/admin/faculty/${id}`)}
                 onEdit={(id) => router.push(`/admin/faculty/${id}/edit`)}
-                onDelete={() => {}} // Add delete functionality if needed
+                onDelete={handleDeleteFaculty}
+                deleteLoading={deleteLoading}
               />
             )}
           </CardContent>

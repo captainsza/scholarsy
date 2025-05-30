@@ -225,18 +225,75 @@ export async function DELETE(
     // Get the student to find the user ID
     const student = await prisma.student.findUnique({
       where: { id: studentId },
+      include: {
+        user: true,
+      }
     });
 
     if (!student) {
       return NextResponse.json({ message: 'Student not found' }, { status: 404 });
     }
 
-    // Delete the student
-    await prisma.student.delete({
-      where: { id: studentId },
+    // Delete student and all related records in a transaction
+    await prisma.$transaction(async (tx) => {
+      // Delete student-related records first
+      await tx.courseEnrollment.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.subjectAttendance.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.assessmentMark.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.gradeRecord.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.registration.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.attendance.deleteMany({
+        where: { studentId: studentId }
+      });
+      
+      await tx.submission.deleteMany({
+        where: { studentId: studentId }
+      });
+
+      // Delete the student record
+      await tx.student.delete({
+        where: { id: studentId }
+      });
+
+      // Delete user profile
+      await tx.profile.deleteMany({
+        where: { userId: student.userId }
+      });
+
+      // Delete approvals related to this user
+      await tx.approval.deleteMany({
+        where: {
+          OR: [
+            { adminId: student.userId },
+            { userId: student.userId }
+          ]
+        }
+      });
+
+      // Finally, delete the user account
+      await tx.user.delete({
+        where: { id: student.userId }
+      });
     });
 
-    return NextResponse.json({ message: 'Student deleted successfully' });
+    return NextResponse.json({ 
+      message: 'Student and associated user account deleted successfully' 
+    });
   } catch (error: any) {
     console.error('Student deletion error:', error);
     return NextResponse.json(

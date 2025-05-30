@@ -7,7 +7,8 @@ import {
   Trash2, 
   Eye, 
   BookOpen,
-  Calendar
+  Calendar,
+  ClipboardList
 } from "lucide-react";
 import { formatDistance } from "date-fns";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -52,9 +53,16 @@ interface FacultyListProps {
   onView: (id: string) => void;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  deleteLoading?: string | null;
 }
 
-export default function FacultyList({ faculty, onView, onEdit, onDelete }: FacultyListProps) {
+export default function FacultyList({ 
+  faculty, 
+  onView, 
+  onEdit, 
+  onDelete, 
+  deleteLoading 
+}: FacultyListProps) {
   const [page, setPage] = useState(1);
   const pageSize = 10;
   
@@ -92,6 +100,8 @@ export default function FacultyList({ faculty, onView, onEdit, onDelete }: Facul
           ) : (
             paginatedFaculty.map((member) => {
               const { subjectCount, courseCount } = getAssignmentCounts(member);
+              const isDeleting = deleteLoading === member.id;
+              
               return (
                 <TableRow key={member.id}>
                   <TableCell className="pl-4 font-medium flex items-center gap-3">
@@ -130,7 +140,11 @@ export default function FacultyList({ faculty, onView, onEdit, onDelete }: Facul
                   <TableCell className="text-right pr-6">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
+                        <Button 
+                          variant="ghost" 
+                          className="h-8 w-8 p-0"
+                          disabled={isDeleting}
+                        >
                           <span className="sr-only">Open menu</span>
                           <MoreHorizontal className="h-4 w-4" />
                         </Button>
@@ -147,7 +161,11 @@ export default function FacultyList({ faculty, onView, onEdit, onDelete }: Facul
                         <DropdownMenuSeparator />
                         <DropdownMenuItem onClick={() => onView(`${member.id}/courses`)}>
                           <BookOpen className="mr-2 h-4 w-4" />
-                          <span>Assigned courses</span>
+                          <span>View courses</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onView(`${member.id}/assign-subjects`)}>
+                          <ClipboardList className="mr-2 h-4 w-4" />
+                          <span>Assign subjects</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => onView(`${member.id}/schedule`)}>
                           <Calendar className="mr-2 h-4 w-4" />
@@ -157,9 +175,10 @@ export default function FacultyList({ faculty, onView, onEdit, onDelete }: Facul
                         <DropdownMenuItem 
                           onClick={() => onDelete(member.id)}
                           className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          disabled={isDeleting}
                         >
                           <Trash2 className="mr-2 h-4 w-4" />
-                          <span>Delete faculty</span>
+                          <span>{isDeleting ? "Deleting..." : "Delete faculty"}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
