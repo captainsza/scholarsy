@@ -22,7 +22,7 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { toast } from "@/components/ui/toastall";
-import { AlertCircle, ArrowLeft, Calendar, Clock, Loader2, Plus } from "lucide-react";
+import { AlertCircle, ArrowLeft, Calendar, Clock, Loader2, Plus, Trash2, Copy } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -33,6 +33,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/Badge";
+
+interface ScheduleItem {
+  id: string;
+  subjectId: string;
+  facultyId: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  roomId: string;
+  autoAssignFaculty: boolean;
+}
 
 export default function CreateSchedulePage() {
   const router = useRouter();
@@ -46,17 +58,13 @@ export default function CreateSchedulePage() {
 
   // Subject data
   const [subjects, setSubjects] = useState<any[]>([]);
-  const [selectedSubjectId, setSelectedSubjectId] = useState<string>("");
   const [subjectsLoading, setSubjectsLoading] = useState(false);
 
   // Faculty data
   const [faculty, setFaculty] = useState<any[]>([]);
-  const [selectedFacultyId, setSelectedFacultyId] = useState<string>("");
-  const [autoAssignFaculty, setAutoAssignFaculty] = useState<boolean>(true);
 
   // Room data
   const [rooms, setRooms] = useState<any[]>([]);
-  const [selectedRoomId, setSelectedRoomId] = useState<string>("none");
 
   // Room creation state
   const [isRoomDialogOpen, setIsRoomDialogOpen] = useState(false);
@@ -65,15 +73,32 @@ export default function CreateSchedulePage() {
   const [newRoomCapacity, setNewRoomCapacity] = useState<number>(30);
   const [creatingRoom, setCreatingRoom] = useState(false);
 
-  // Schedule data
-  const [dayOfWeek, setDayOfWeek] = useState<string>("Monday");
-  const [startTime, setStartTime] = useState<string>("09:00");
-  const [endTime, setEndTime] = useState<string>("10:00");
+  // Multiple schedule items
+  const [scheduleItems, setScheduleItems] = useState<ScheduleItem[]>([
+    {
+      id: "1",
+      subjectId: "",
+      facultyId: "",
+      dayOfWeek: "Monday",
+      startTime: "09:00",
+      endTime: "10:00",
+      roomId: "none",
+      autoAssignFaculty: true,
+    }
+  ]);
 
-  // Form valid state
+  // Bulk creation options
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSettings, setBulkSettings] = useState({
+    dayOfWeek: "Monday",
+    startTime: "09:00",
+    duration: 60, // minutes
+    roomId: "none",
+    autoAssignFaculty: true,
+  });
+
+  // Form validation
   const [isFormValid, setIsFormValid] = useState<boolean>(false);
-
-  // Field error states
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
 
   // Fetch initial data
@@ -122,7 +147,6 @@ export default function CreateSchedulePage() {
     const fetchSubjects = async () => {
       if (!selectedCourseId) {
         setSubjects([]);
-        setSelectedSubjectId('');
         return;
       }
 
@@ -133,9 +157,6 @@ export default function CreateSchedulePage() {
 
         const data = await res.json();
         setSubjects(data.subjects || []);
-
-        // Reset selected subject
-        setSelectedSubjectId('');
 
       } catch (err: any) {
         console.error('Error fetching subjects:', err);
@@ -152,39 +173,116 @@ export default function CreateSchedulePage() {
     fetchSubjects();
   }, [selectedCourseId]);
 
-  // Auto-select faculty when subject is selected and auto-assign is enabled
-  useEffect(() => {
-    if (autoAssignFaculty && selectedSubjectId) {
-      const selectedSubject = subjects.find(s => s.id === selectedSubjectId);
-      if (selectedSubject && selectedSubject.facultyId) {
-        setSelectedFacultyId(selectedSubject.facultyId);
-      } else {
-        // If no faculty is assigned to this subject, reset the selection
-        setSelectedFacultyId('');
+  // Auto-assign faculty when subject is selected
+  const handleSubjectChange = (itemId: string, subjectId: string) => {
+    setScheduleItems(prev => prev.map(item => {
+      if (item.id === itemId) {
+        const updatedItem = { ...item, subjectId };
+        
+        if (item.autoAssignFaculty && subjectId) {
+          const selectedSubject = subjects.find(s => s.id === subjectId);
+          if (selectedSubject && selectedSubject.facultyId) {
+            updatedItem.facultyId = selectedSubject.facultyId;
+          } else {
+            updatedItem.facultyId = '';
+          }
+        }
+        
+        return updatedItem;
       }
-    }
-  }, [selectedSubjectId, subjects, autoAssignFaculty]);
+      return item;
+    }));
+  };
 
-  // Validate form - update to make room optional
+  // Add new schedule item
+  const addScheduleItem = () => {
+    const newItem: ScheduleItem = {
+      id: Date.now().toString(),
+      subjectId: "",
+      facultyId: "",
+      dayOfWeek: "Monday",
+      startTime: "09:00",
+      endTime: "10:00",
+      roomId: "none",
+      autoAssignFaculty: true,
+    };
+    setScheduleItems(prev => [...prev, newItem]);
+  };
+
+  // Remove schedule item
+  const removeScheduleItem = (itemId: string) => {
+    if (scheduleItems.length > 1) {
+      setScheduleItems(prev => prev.filter(item => item.id !== itemId));
+    }
+  };
+
+  // Update schedule item
+  const updateScheduleItem = (itemId: string, field: keyof ScheduleItem, value: any) => {
+    setScheduleItems(prev => prev.map(item => 
+      item.id === itemId ? { ...item, [field]: value } : item
+    ));
+  };
+
+  // Bulk create from selected subjects
+  const handleBulkCreate = () => {
+    if (!subjects.length) {
+      toast({
+        title: 'Error',
+        description: 'No subjects available for bulk creation',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    const newItems: ScheduleItem[] = subjects.map((subject, index) => {
+      const startHour = parseInt(bulkSettings.startTime.split(':')[0]);
+      const startMinute = parseInt(bulkSettings.startTime.split(':')[1]);
+      const totalMinutes = startHour * 60 + startMinute + (index * bulkSettings.duration);
+      const newStartHour = Math.floor(totalMinutes / 60);
+      const newStartMinute = totalMinutes % 60;
+      const endTotalMinutes = totalMinutes + bulkSettings.duration;
+      const endHour = Math.floor(endTotalMinutes / 60);
+      const endMinute = endTotalMinutes % 60;
+
+      return {
+        id: `bulk-${index}`,
+        subjectId: subject.id,
+        facultyId: bulkSettings.autoAssignFaculty ? (subject.facultyId || '') : '',
+        dayOfWeek: bulkSettings.dayOfWeek,
+        startTime: `${newStartHour.toString().padStart(2, '0')}:${newStartMinute.toString().padStart(2, '0')}`,
+        endTime: `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`,
+        roomId: bulkSettings.roomId,
+        autoAssignFaculty: bulkSettings.autoAssignFaculty,
+      };
+    });
+
+    setScheduleItems(newItems);
+    setBulkMode(false);
+  };
+
+  // Validate form
   useEffect(() => {
     const newFieldErrors: Record<string, string> = {};
 
     if (!selectedCourseId) newFieldErrors.course = "Course is required";
-    if (!selectedSubjectId) newFieldErrors.subject = "Subject is required";
-    if (!selectedFacultyId) newFieldErrors.faculty = "Faculty is required";
-    if (!dayOfWeek) newFieldErrors.dayOfWeek = "Day is required";
-    if (!startTime) newFieldErrors.startTime = "Start time is required";
-    if (!endTime) newFieldErrors.endTime = "End time is required";
 
-    // Check if end time is after start time
-    if (startTime && endTime && startTime >= endTime) {
-      newFieldErrors.endTime = "End time must be after start time";
-    }
+    scheduleItems.forEach((item, index) => {
+      if (!item.subjectId) newFieldErrors[`subject-${index}`] = "Subject is required";
+      if (!item.facultyId) newFieldErrors[`faculty-${index}`] = "Faculty is required";
+      if (!item.dayOfWeek) newFieldErrors[`day-${index}`] = "Day is required";
+      if (!item.startTime) newFieldErrors[`startTime-${index}`] = "Start time is required";
+      if (!item.endTime) newFieldErrors[`endTime-${index}`] = "End time is required";
+      
+      if (item.startTime && item.endTime && item.startTime >= item.endTime) {
+        newFieldErrors[`endTime-${index}`] = "End time must be after start time";
+      }
+    });
 
     setFieldErrors(newFieldErrors);
     setIsFormValid(Object.keys(newFieldErrors).length === 0);
-  }, [selectedCourseId, selectedSubjectId, selectedFacultyId, dayOfWeek, startTime, endTime]);
+  }, [selectedCourseId, scheduleItems]);
 
+  // Handle room creation
   const handleCreateRoom = async () => {
     if (!newRoomName || newRoomCapacity <= 0) {
       toast({
@@ -214,17 +312,13 @@ export default function CreateSchedulePage() {
       }
 
       const newRoom = await res.json();
-
-      // Add new room to list and select it
       setRooms(prevRooms => [...prevRooms, newRoom.room]);
-      setSelectedRoomId(newRoom.room.id);
 
       toast({
         title: "Success",
         description: "Room created successfully",
       });
 
-      // Reset and close dialog
       setNewRoomName("");
       setNewRoomType("CLASSROOM");
       setNewRoomCapacity(30);
@@ -241,6 +335,7 @@ export default function CreateSchedulePage() {
     }
   };
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -257,43 +352,48 @@ export default function CreateSchedulePage() {
     setError(null);
 
     try {
-      const roomIdToSubmit = selectedRoomId === "none" ? null : selectedRoomId;
+      const promises = scheduleItems.map(item => {
+        const scheduleData = {
+          courseId: selectedCourseId,
+          subjectId: item.subjectId,
+          facultyId: item.facultyId,
+          dayOfWeek: item.dayOfWeek,
+          startTime: item.startTime,
+          endTime: item.endTime,
+          ...(item.roomId !== "none" && { roomId: item.roomId })
+        };
 
-      const scheduleData = {
-        courseId: selectedCourseId,
-        subjectId: selectedSubjectId,
-        facultyId: selectedFacultyId,
-        dayOfWeek,
-        startTime,
-        endTime,
-        ...(selectedRoomId !== "none" && { roomId: selectedRoomId })
-      };
-
-      const res = await fetch('/api/admin/schedule', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(scheduleData),
+        return fetch('/api/admin/schedule', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(scheduleData),
+        });
       });
 
-      if (!res.ok) {
-        const errorData = await res.json();
-        throw new Error(errorData.message || 'Failed to create schedule');
+      const results = await Promise.allSettled(promises);
+      
+      const successCount = results.filter(result => result.status === 'fulfilled').length;
+      const failedCount = results.filter(result => result.status === 'rejected').length;
+
+      if (successCount > 0) {
+        toast({
+          title: 'Success',
+          description: `${successCount} schedule(s) created successfully${failedCount > 0 ? `, ${failedCount} failed` : ''}`,
+        });
+        
+        if (failedCount === 0) {
+          router.push('/admin/schedule');
+        }
+      } else {
+        throw new Error('All schedule creations failed');
       }
 
-      toast({
-        title: 'Success',
-        description: 'Schedule created successfully',
-      });
-
-      // Navigate back to schedule list
-      router.push('/admin/schedule');
-
     } catch (err: any) {
-      console.error('Error creating schedule:', err);
-      setError(err.message || 'Failed to create schedule');
+      console.error('Error creating schedules:', err);
+      setError(err.message || 'Failed to create schedules');
       toast({
         title: 'Error',
-        description: err.message || 'Failed to create schedule',
+        description: err.message || 'Failed to create schedules',
         variant: 'destructive',
       });
     } finally {
@@ -316,17 +416,39 @@ export default function CreateSchedulePage() {
 
   return (
     <AdminLayout>
-      <div className="px-6 py-8 max-w-5xl mx-auto">
-        <div className="mb-6 flex items-center">
-          <Button
-            variant="ghost"
-            onClick={() => router.back()}
-            className="flex items-center text-gray-600 hover:text-black mr-4"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
-          <h1 className="text-2xl font-bold text-gray-900">Create New Class Schedule</h1>
+      <div className="px-6 py-8 max-w-6xl mx-auto">
+        <div className="mb-6 flex items-center justify-between">
+          <div className="flex items-center">
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="flex items-center text-gray-600 hover:text-black mr-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+            <h1 className="text-2xl font-bold text-gray-900">Create Class Schedules</h1>
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBulkMode(true)}
+              disabled={!subjects.length || submitting}
+            >
+              <Copy className="h-4 w-4 mr-2" />
+              Bulk Create
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={addScheduleItem}
+              disabled={submitting}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Add Schedule
+            </Button>
+          </div>
         </div>
 
         {error && (
@@ -337,258 +459,368 @@ export default function CreateSchedulePage() {
           </Alert>
         )}
 
-        <Card className="shadow-md">
-          <CardHeader className="bg-gradient-to-r from-cyan-50 to-blue-50">
-            <CardTitle className="flex items-center">
-              <Calendar className="mr-2 h-5 w-5 text-cyan-600" />
-              Schedule Details
-            </CardTitle>
-            <CardDescription>
-              Create a new class schedule by providing the details below
-            </CardDescription>
-          </CardHeader>
-
-          <form onSubmit={handleSubmit}>
-            <CardContent className="pt-6 space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Course Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="course" className={fieldErrors.course ? "text-red-500" : ""}>
-                    Course <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={selectedCourseId}
-                    onValueChange={setSelectedCourseId}
-                    disabled={submitting}
-                  >
-                    <SelectTrigger className={fieldErrors.course ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select a course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name} - {course.branch} (Semester {course.semester})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.course && <p className="text-xs text-red-500">{fieldErrors.course}</p>}
-                </div>
-
-                {/* Room Selection - Updated to be optional */}
-                <div className="space-y-2">
-                  <Label htmlFor="room">
-                    Room <span className="text-gray-400">(Optional)</span>
-                  </Label>
-                  <div className="flex space-x-2">
-                    <Select
-                      value={selectedRoomId}
-                      onValueChange={setSelectedRoomId}
-                      disabled={submitting}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select a room or leave empty" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No room assigned</SelectItem>
-                        {rooms.map((room) => (
-                          <SelectItem key={room.id} value={room.id}>
-                            {room.name} ({room.type}, Capacity: {room.capacity})
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => setIsRoomDialogOpen(true)}
-                      disabled={submitting}
-                    >
-                      <Plus className="h-4 w-4 mr-1" /> New
-                    </Button>
-                  </div>
-                  <p className="text-xs text-gray-500">Schedule can be created without assigning a room</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Subject Selection */}
-                <div className="space-y-2">
-                  <Label htmlFor="subject" className={fieldErrors.subject ? "text-red-500" : ""}>
-                    Subject <span className="text-red-500">*</span>
-                  </Label>
-                  <Select
-                    value={selectedSubjectId}
-                    onValueChange={setSelectedSubjectId}
-                    disabled={!selectedCourseId || submitting || subjectsLoading}
-                  >
-                    <SelectTrigger className={fieldErrors.subject ? "border-red-500" : ""}>
-                      {subjectsLoading ? (
-                        <div className="flex items-center">
-                          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                          <span>Loading subjects...</span>
-                        </div>
-                      ) : (
-                        <SelectValue placeholder={!selectedCourseId ? "Select a course first" : "Select a subject"} />
-                      )}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {subjects.length ? (
-                        subjects.map((subject) => (
-                          <SelectItem key={subject.id} value={subject.id}>
-                            {subject.code}: {subject.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <div className="p-2 text-sm text-gray-500">
-                          {selectedCourseId ? "No subjects found for this course" : "Select a course to load subjects"}
-                        </div>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.subject && <p className="text-xs text-red-500">{fieldErrors.subject}</p>}
-                </div>
-
-                {/* Faculty Selection */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <Label htmlFor="faculty" className={fieldErrors.faculty ? "text-red-500" : ""}>
-                      Faculty <span className="text-red-500">*</span>
-                    </Label>
-                    <div className="flex items-center space-x-2">
-                      <Checkbox
-                        id="autoAssign"
-                        checked={autoAssignFaculty}
-                        onCheckedChange={(checked) => {
-                          setAutoAssignFaculty(!!checked);
-                          if (!checked && selectedSubjectId) {
-                            setSelectedFacultyId('');
-                          }
-                        }}
-                        disabled={submitting}
-                      />
-                      <label htmlFor="autoAssign" className="text-sm text-gray-500 cursor-pointer">
-                        Auto-assign from subject
-                      </label>
-                    </div>
-                  </div>
-                  <Select
-                    value={selectedFacultyId}
-                    onValueChange={setSelectedFacultyId}
-                    disabled={autoAssignFaculty || submitting}
-                  >
-                    <SelectTrigger className={fieldErrors.faculty ? "border-red-500" : ""}>
-                      <SelectValue placeholder={
-                        autoAssignFaculty
-                          ? (selectedFacultyId
-                              ? faculty.find(f => f.id === selectedFacultyId)?.name || "Auto-assigned faculty"
-                              : "Will auto-assign when subject is selected")
-                          : "Select a faculty"
-                      } />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {faculty.map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          {f.name} ({f.department})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.faculty && <p className="text-xs text-red-500">{fieldErrors.faculty}</p>}
-                  {autoAssignFaculty && !selectedFacultyId && selectedSubjectId && (
-                    <p className="text-xs text-amber-600">No faculty assigned to this subject</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Schedule Time Details */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div className="space-y-2">
-                  <Label htmlFor="dayOfWeek" className={fieldErrors.dayOfWeek ? "text-red-500" : ""}>
-                    Day of Week <span className="text-red-500">*</span>
-                  </Label>
-                  <Select value={dayOfWeek} onValueChange={setDayOfWeek} disabled={submitting}>
-                    <SelectTrigger className={fieldErrors.dayOfWeek ? "border-red-500" : ""}>
-                      <SelectValue placeholder="Select day" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {daysOfWeek.map((day) => (
-                        <SelectItem key={day} value={day}>
-                          {day}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {fieldErrors.dayOfWeek && <p className="text-xs text-red-500">{fieldErrors.dayOfWeek}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="startTime" className={fieldErrors.startTime ? "text-red-500" : ""}>
-                    Start Time <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="startTime"
-                      type="time"
-                      value={startTime}
-                      onChange={(e) => setStartTime(e.target.value)}
-                      className={`pl-10 ${fieldErrors.startTime ? "border-red-500" : ""}`}
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-                  {fieldErrors.startTime && <p className="text-xs text-red-500">{fieldErrors.startTime}</p>}
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="endTime" className={fieldErrors.endTime ? "text-red-500" : ""}>
-                    End Time <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
-                    <Input
-                      id="endTime"
-                      type="time"
-                      value={endTime}
-                      onChange={(e) => setEndTime(e.target.value)}
-                      className={`pl-10 ${fieldErrors.endTime ? "border-red-500" : ""}`}
-                      required
-                      disabled={submitting}
-                    />
-                  </div>
-                  {fieldErrors.endTime && <p className="text-xs text-red-500">{fieldErrors.endTime}</p>}
-                </div>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Course Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Course Selection</CardTitle>
+              <CardDescription>Select the course for which you want to create schedules</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label htmlFor="course" className={fieldErrors.course ? "text-red-500" : ""}>
+                  Course <span className="text-red-500">*</span>
+                </Label>
+                <Select
+                  value={selectedCourseId}
+                  onValueChange={setSelectedCourseId}
+                  disabled={submitting}
+                >
+                  <SelectTrigger className={fieldErrors.course ? "border-red-500" : ""}>
+                    <SelectValue placeholder="Select a course" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {courses.map((course) => (
+                      <SelectItem key={course.id} value={course.id}>
+                        {course.name} - {course.branch} (Semester {course.semester})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {fieldErrors.course && <p className="text-xs text-red-500">{fieldErrors.course}</p>}
               </div>
             </CardContent>
+          </Card>
 
-            <CardFooter className="flex justify-between border-t bg-gray-50 p-6">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => router.back()}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                disabled={!isFormValid || submitting}
-                className="bg-gradient-to-r from-cyan-500 to-blue-500"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
-                  </>
-                ) : (
-                  'Create Schedule'
-                )}
-              </Button>
-            </CardFooter>
-          </form>
-        </Card>
+          {/* Schedule Items */}
+          <div className="space-y-4">
+            {scheduleItems.map((item, index) => (
+              <Card key={item.id}>
+                <CardHeader className="pb-4">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-lg">
+                      Schedule {index + 1}
+                      {subjects.find(s => s.id === item.subjectId) && (
+                        <Badge variant="outline" className="ml-2">
+                          {subjects.find(s => s.id === item.subjectId)?.code}
+                        </Badge>
+                      )}
+                    </CardTitle>
+                    {scheduleItems.length > 1 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeScheduleItem(item.id)}
+                        disabled={submitting}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {/* Subject Selection */}
+                    <div className="space-y-2">
+                      <Label className={fieldErrors[`subject-${index}`] ? "text-red-500" : ""}>
+                        Subject <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={item.subjectId}
+                        onValueChange={(value) => handleSubjectChange(item.id, value)}
+                        disabled={!selectedCourseId || submitting || subjectsLoading}
+                      >
+                        <SelectTrigger className={fieldErrors[`subject-${index}`] ? "border-red-500" : ""}>
+                          {subjectsLoading ? (
+                            <div className="flex items-center">
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              <span>Loading...</span>
+                            </div>
+                          ) : (
+                            <SelectValue placeholder={!selectedCourseId ? "Select course first" : "Select subject"} />
+                          )}
+                        </SelectTrigger>
+                        <SelectContent>
+                          {subjects.map((subject) => (
+                            <SelectItem key={subject.id} value={subject.id}>
+                              {subject.code}: {subject.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {fieldErrors[`subject-${index}`] && <p className="text-xs text-red-500">{fieldErrors[`subject-${index}`]}</p>}
+                    </div>
+
+                    {/* Faculty Selection */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className={fieldErrors[`faculty-${index}`] ? "text-red-500" : ""}>
+                          Faculty <span className="text-red-500">*</span>
+                        </Label>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={item.autoAssignFaculty}
+                            onCheckedChange={(checked) => 
+                              updateScheduleItem(item.id, 'autoAssignFaculty', !!checked)
+                            }
+                            disabled={submitting}
+                          />
+                          <label className="text-xs text-gray-500">Auto</label>
+                        </div>
+                      </div>
+                      <Select
+                        value={item.facultyId}
+                        onValueChange={(value) => updateScheduleItem(item.id, 'facultyId', value)}
+                        disabled={item.autoAssignFaculty || submitting}
+                      >
+                        <SelectTrigger className={fieldErrors[`faculty-${index}`] ? "border-red-500" : ""}>
+                          <SelectValue placeholder="Select faculty" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {faculty.map((f) => (
+                            <SelectItem key={f.id} value={f.id}>
+                              {f.name} ({f.department})
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {fieldErrors[`faculty-${index}`] && <p className="text-xs text-red-500">{fieldErrors[`faculty-${index}`]}</p>}
+                    </div>
+
+                    {/* Room Selection */}
+                    <div className="space-y-2">
+                      <Label>Room (Optional)</Label>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={item.roomId}
+                          onValueChange={(value) => updateScheduleItem(item.id, 'roomId', value)}
+                          disabled={submitting}
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue placeholder="Select room" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="none">No room</SelectItem>
+                            {rooms.map((room) => (
+                              <SelectItem key={room.id} value={room.id}>
+                                {room.name} ({room.type})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {index === 0 && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setIsRoomDialogOpen(true)}
+                            disabled={submitting}
+                          >
+                            <Plus className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Day Selection */}
+                    <div className="space-y-2">
+                      <Label className={fieldErrors[`day-${index}`] ? "text-red-500" : ""}>
+                        Day <span className="text-red-500">*</span>
+                      </Label>
+                      <Select
+                        value={item.dayOfWeek}
+                        onValueChange={(value) => updateScheduleItem(item.id, 'dayOfWeek', value)}
+                        disabled={submitting}
+                      >
+                        <SelectTrigger className={fieldErrors[`day-${index}`] ? "border-red-500" : ""}>
+                          <SelectValue placeholder="Select day" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {daysOfWeek.map((day) => (
+                            <SelectItem key={day} value={day}>
+                              {day}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {fieldErrors[`day-${index}`] && <p className="text-xs text-red-500">{fieldErrors[`day-${index}`]}</p>}
+                    </div>
+
+                    {/* Start Time */}
+                    <div className="space-y-2">
+                      <Label className={fieldErrors[`startTime-${index}`] ? "text-red-500" : ""}>
+                        Start Time <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <Input
+                          type="time"
+                          value={item.startTime}
+                          onChange={(e) => updateScheduleItem(item.id, 'startTime', e.target.value)}
+                          className={`pl-10 ${fieldErrors[`startTime-${index}`] ? "border-red-500" : ""}`}
+                          disabled={submitting}
+                        />
+                      </div>
+                      {fieldErrors[`startTime-${index}`] && <p className="text-xs text-red-500">{fieldErrors[`startTime-${index}`]}</p>}
+                    </div>
+
+                    {/* End Time */}
+                    <div className="space-y-2">
+                      <Label className={fieldErrors[`endTime-${index}`] ? "text-red-500" : ""}>
+                        End Time <span className="text-red-500">*</span>
+                      </Label>
+                      <div className="relative">
+                        <Clock className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+                        <Input
+                          type="time"
+                          value={item.endTime}
+                          onChange={(e) => updateScheduleItem(item.id, 'endTime', e.target.value)}
+                          className={`pl-10 ${fieldErrors[`endTime-${index}`] ? "border-red-500" : ""}`}
+                          disabled={submitting}
+                        />
+                      </div>
+                      {fieldErrors[`endTime-${index}`] && <p className="text-xs text-red-500">{fieldErrors[`endTime-${index}`]}</p>}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Submit Button */}
+          <CardFooter className="flex justify-between border-t bg-gray-50 p-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => router.back()}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              disabled={!isFormValid || submitting}
+              className="bg-gradient-to-r from-cyan-500 to-blue-500"
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Creating {scheduleItems.length} Schedule(s)...
+                </>
+              ) : (
+                `Create ${scheduleItems.length} Schedule(s)`
+              )}
+            </Button>
+          </CardFooter>
+        </form>
       </div>
+
+      {/* Bulk Creation Dialog */}
+      <Dialog open={bulkMode} onOpenChange={setBulkMode}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Bulk Create Schedules</DialogTitle>
+            <DialogDescription>
+              Create schedules for all subjects in the selected course with sequential timing
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulkDay" className="text-right">Day</Label>
+              <Select
+                value={bulkSettings.dayOfWeek}
+                onValueChange={(value) => setBulkSettings(prev => ({ ...prev, dayOfWeek: value }))
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {daysOfWeek.map((day) => (
+                    <SelectItem key={day} value={day}>{day}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulkStartTime" className="text-right">Start Time</Label>
+              <Input
+                id="bulkStartTime"
+                type="time"
+                value={bulkSettings.startTime}
+                onChange={(e) => setBulkSettings(prev => ({ ...prev, startTime: e.target.value }))
+                }
+                className="col-span-3"
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulkDuration" className="text-right">Duration (min)</Label>
+              <Input
+                id="bulkDuration"
+                type="number"
+                value={bulkSettings.duration}
+                onChange={(e) => setBulkSettings(prev => ({ ...prev, duration: Number(e.target.value) }))
+                }
+                className="col-span-3"
+                min={30}
+                max={180}
+              />
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="bulkRoom" className="text-right">Room</Label>
+              <Select
+                value={bulkSettings.roomId}
+                onValueChange={(value) => setBulkSettings(prev => ({ ...prev, roomId: value }))
+                }
+              >
+                <SelectTrigger className="col-span-3">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No room</SelectItem>
+                  {rooms.map((room) => (
+                    <SelectItem key={room.id} value={room.id}>
+                      {room.name} ({room.type})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">Auto Faculty</Label>
+              <div className="col-span-3">
+                <Checkbox
+                  checked={bulkSettings.autoAssignFaculty}
+                  onCheckedChange={(checked) => setBulkSettings(prev => ({ ...prev, autoAssignFaculty: !!checked }))
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setBulkMode(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={handleBulkCreate}
+            >
+              Create {subjects.length} Schedules
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Room Creation Dialog */}
       <Dialog open={isRoomDialogOpen} onOpenChange={setIsRoomDialogOpen}>

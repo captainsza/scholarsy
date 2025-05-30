@@ -19,23 +19,33 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from "@/components/ui/tabs";
 
 import ScheduleTable from "@/components/admin/schedule/ScheduleTable";
 import ScheduleCalendar from "@/components/admin/schedule/ScheduleCalendar";
 import { Calendar, Grid, List, Plus } from "lucide-react";
+
+interface ScheduleItem {
+  id: string;
+  courseId: string;
+  courseName: string;
+  subjectId: string;
+  subjectName: string;
+  subjectCode: string;
+  dayOfWeek: string;
+  startTime: string;
+  endTime: string;
+  roomName: string;
+  facultyName: string;
+}
 
 export default function SchedulePage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState("list");
   const [courses, setCourses] = useState<any[]>([]);
   const [rooms, setRooms] = useState<any[]>([]);
+  const [schedules, setSchedules] = useState<ScheduleItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [schedulesLoading, setSchedulesLoading] = useState(false);
 
   // Filter states
   const [selectedCourse, setSelectedCourse] = useState<string>("all");
@@ -71,6 +81,40 @@ export default function SchedulePage() {
 
     fetchData();
   }, []);
+
+  // Fetch schedules when filters change
+  useEffect(() => {
+    const fetchSchedules = async () => {
+      try {
+        setSchedulesLoading(true);
+        
+        // Build query parameters
+        const params = new URLSearchParams();
+        if (selectedCourse !== "all") params.append('courseId', selectedCourse);
+        if (selectedDay !== "all") params.append('dayOfWeek', selectedDay);
+        if (selectedRoom !== "all") params.append('roomId', selectedRoom);
+        
+        const queryString = params.toString();
+        const url = `/api/admin/schedule${queryString ? `?${queryString}` : ''}`;
+        
+        const response = await fetch(url);
+        if (response.ok) {
+          const data = await response.json();
+          setSchedules(data.schedules || []);
+        } else {
+          console.error('Failed to fetch schedules');
+          setSchedules([]);
+        }
+      } catch (error) {
+        console.error('Error fetching schedules:', error);
+        setSchedules([]);
+      } finally {
+        setSchedulesLoading(false);
+      }
+    };
+
+    fetchSchedules();
+  }, [selectedCourse, selectedDay, selectedRoom]);
 
   // Filter object to pass to components
   const filters = {
@@ -171,7 +215,7 @@ export default function SchedulePage() {
           <div className="border rounded-md inline-flex">
             <button
               onClick={() => setViewMode("list")}
-              className={`px-4 py-2 flex items-center ${
+              className={`px-4 py-2 flex items-center rounded-l-md ${
                 viewMode === "list"
                   ? "bg-cyan-500 text-white"
                   : "bg-white text-gray-600 hover:bg-gray-50"
@@ -182,7 +226,7 @@ export default function SchedulePage() {
             </button>
             <button
               onClick={() => setViewMode("calendar")}
-              className={`px-4 py-2 flex items-center ${
+              className={`px-4 py-2 flex items-center rounded-r-md ${
                 viewMode === "calendar"
                   ? "bg-cyan-500 text-white"
                   : "bg-white text-gray-600 hover:bg-gray-50"
@@ -199,23 +243,22 @@ export default function SchedulePage() {
           <CardHeader className="pb-3">
             <CardTitle>Class Schedule</CardTitle>
             <CardDescription>
-              {selectedCourse && courses.find(c => c.id === selectedCourse)?.name}
-              {selectedDay && (selectedCourse ? ` on ${selectedDay}` : `${selectedDay}`)}
-              {selectedRoom && rooms.find(r => r.id === selectedRoom)?.name}
-              {!selectedCourse && !selectedDay && !selectedRoom && "All scheduled classes"}
+              {selectedCourse !== "all" && courses.find(c => c.id === selectedCourse)?.name}
+              {selectedDay !== "all" && (selectedCourse !== "all" ? ` on ${selectedDay}` : `${selectedDay}`)}
+              {selectedRoom !== "all" && ` in ${rooms.find(r => r.id === selectedRoom)?.name}`}
+              {selectedCourse === "all" && selectedDay === "all" && selectedRoom === "all" && "All scheduled classes"}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            {viewMode === "list" ? (
+            {schedulesLoading ? (
+              <div className="text-center py-10">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-cyan-500 mx-auto mb-4"></div>
+                <p className="text-gray-500">Loading schedule data...</p>
+              </div>
+            ) : viewMode === "list" ? (
               <ScheduleTable filter={filters} />
             ) : (
-              <div>
-                {loading ? (
-                  <div className="text-center py-10">Loading schedule data...</div>
-                ) : (
-                  <ScheduleCalendar schedules={[]} /> // Replace with actual schedule data
-                )}
-              </div>
+              <ScheduleCalendar schedules={schedules} />
             )}
           </CardContent>
         </Card>
