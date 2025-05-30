@@ -45,8 +45,8 @@ interface UserEditPageProps {
   };
 }
 
-// Define form schema based on user role
-const commonUserSchema = z.object({
+// Define comprehensive form schema
+const userEditSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   profile: z.object({
     firstName: z.string().min(1, "First name is required"),
@@ -61,12 +61,9 @@ const commonUserSchema = z.object({
   }),
   isApproved: z.boolean(),
   emailVerified: z.boolean(),
-});
-
-const studentSchema = commonUserSchema.extend({
   student: z.object({
-    enrollmentId: z.string().min(1, "Enrollment ID is required"),
-    department: z.string().min(1, "Department is required"),
+    enrollmentId: z.string().optional(),
+    department: z.string().optional(),
     currentSemester: z.string().optional(),
     bloodGroup: z.string().optional(),
     fatherName: z.string().optional(),
@@ -76,16 +73,13 @@ const studentSchema = commonUserSchema.extend({
     academicStatus: z.string().optional(),
     courseName: z.string().optional(),
     branchName: z.string().optional(),
-  }),
-});
-
-const facultySchema = commonUserSchema.extend({
+  }).optional(),
   faculty: z.object({
-    department: z.string().min(1, "Department is required"),
-  }),
+    department: z.string().optional(),
+  }).optional(),
 });
 
-const adminSchema = commonUserSchema;
+type UserEditFormData = z.infer<typeof userEditSchema>;
 
 export default function UserEditPage({ params }: UserEditPageProps) {
   const { userId } = params;
@@ -94,18 +88,40 @@ export default function UserEditPage({ params }: UserEditPageProps) {
   const [saving, setSaving] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   
-  // Create form with placeholder schema - we'll update it once we know the user role
-  const form = useForm<any>({
-    resolver: zodResolver(commonUserSchema),
+  // Create form with comprehensive schema
+  const form = useForm<UserEditFormData>({
+    resolver: zodResolver(userEditSchema),
     defaultValues: {
       email: "",
       profile: {
         firstName: "",
         lastName: "",
         phone: "",
+        gender: "",
+        address: "",
+        city: "",
+        state: "",
+        country: "India",
+        pincode: "",
       },
       isApproved: false,
       emailVerified: false,
+      student: {
+        enrollmentId: "",
+        department: "",
+        currentSemester: "",
+        bloodGroup: "",
+        fatherName: "",
+        motherName: "",
+        dob: "",
+        admissionSession: "",
+        academicStatus: "REGULAR",
+        courseName: "",
+        branchName: "",
+      },
+      faculty: {
+        department: "",
+      },
     }
   });
 
@@ -123,20 +139,54 @@ export default function UserEditPage({ params }: UserEditPageProps) {
         const data = await response.json();
         const user = data.user;
         
+        console.log('Fetched user data:', user); // Debug log
+        
         // Set user role
         setUserRole(user.role);
 
-        // Update form resolver based on user role
-        if (user.role === "STUDENT") {
-          form.reset(user);
-          form.setValue("student", user.student || {});
-        } else if (user.role === "FACULTY") {
-          form.reset(user);
-          form.setValue("faculty", user.faculty || {});
-        } else {
-          // ADMIN or other roles
-          form.reset(user);
+        // Prepare form data with proper structure
+        const formData: UserEditFormData = {
+          email: user.email || "",
+          profile: {
+            firstName: user.profile?.firstName || "",
+            lastName: user.profile?.lastName || "",
+            phone: user.profile?.phone || "",
+            gender: user.profile?.gender || "",
+            address: user.profile?.address || "",
+            city: user.profile?.city || "",
+            state: user.profile?.state || "",
+            country: user.profile?.country || "India",
+            pincode: user.profile?.pincode || "",
+          },
+          isApproved: Boolean(user.isApproved),
+          emailVerified: Boolean(user.emailVerified),
+        };
+
+        // Add role-specific data
+        if (user.role === "STUDENT" && user.student) {
+          formData.student = {
+            enrollmentId: user.student.enrollmentId || "",
+            department: user.student.department || "",
+            currentSemester: user.student.currentSemester || "",
+            bloodGroup: user.student.bloodGroup || "",
+            fatherName: user.student.fatherName || "",
+            motherName: user.student.motherName || "",
+            dob: user.student.dob ? new Date(user.student.dob).toISOString().split('T')[0] : "",
+            admissionSession: user.student.admissionSession || "",
+            academicStatus: user.student.academicStatus || "REGULAR",
+            courseName: user.student.courseName || "",
+            branchName: user.student.branchName || "",
+          };
+        } else if (user.role === "FACULTY" && user.faculty) {
+          formData.faculty = {
+            department: user.faculty.department || "",
+          };
         }
+
+        console.log('Form data being set:', formData); // Debug log
+
+        // Reset form with complete data
+        form.reset(formData);
 
       } catch (err) {
         console.error("Error fetching user details:", err);
@@ -154,9 +204,11 @@ export default function UserEditPage({ params }: UserEditPageProps) {
   }, [userId, form]);
 
   // Handle form submission
-  const onSubmit = async (values: any) => {
+  const onSubmit = async (values: UserEditFormData) => {
     try {
       setSaving(true);
+      
+      console.log('Submitting form data:', values); // Debug log
       
       const response = await fetch(`/api/admin/users/${userId}`, {
         method: "PUT",
@@ -390,7 +442,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             <FormLabel>Gender</FormLabel>
                             <Select 
                               onValueChange={field.onChange} 
-                              defaultValue={field.value || ''}
+                              value={field.value || ''}
                             >
                               <FormControl>
                                 <SelectTrigger>
@@ -398,10 +450,11 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                                 </SelectTrigger>
                               </FormControl>
                               <SelectContent>
-                                <SelectItem value="Male">Male</SelectItem>
-                                <SelectItem value="Female">Female</SelectItem>
-                                <SelectItem value="Other">Other</SelectItem>
-                                <SelectItem value="Prefer not to say">Prefer not to say</SelectItem>
+                                <SelectItem value="">Select gender</SelectItem>
+                                <SelectItem value="male">Male</SelectItem>
+                                <SelectItem value="female">Female</SelectItem>
+                                <SelectItem value="other">Other</SelectItem>
+                                <SelectItem value="prefer_not_to_say">Prefer not to say</SelectItem>
                               </SelectContent>
                             </Select>
                             <FormMessage />
@@ -426,6 +479,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                                 {...field} 
                                 value={field.value || ''}
                                 rows={3}
+                                placeholder="Enter full address"
                               />
                             </FormControl>
                             <FormMessage />
@@ -442,7 +496,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             <FormItem>
                               <FormLabel>City</FormLabel>
                               <FormControl>
-                                <Input {...field} value={field.value || ''} />
+                                <Input {...field} value={field.value || ''} placeholder="Enter city" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -457,7 +511,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             <FormItem>
                               <FormLabel>State/Province</FormLabel>
                               <FormControl>
-                                <Input {...field} value={field.value || ''} />
+                                <Input {...field} value={field.value || ''} placeholder="Enter state" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -474,7 +528,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             <FormItem>
                               <FormLabel>Country</FormLabel>
                               <FormControl>
-                                <Input {...field} value={field.value || ''} />
+                                <Input {...field} value={field.value || 'India'} placeholder="Enter country" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -489,7 +543,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             <FormItem>
                               <FormLabel>Postal/ZIP Code</FormLabel>
                               <FormControl>
-                                <Input {...field} value={field.value || ''} />
+                                <Input {...field} value={field.value || ''} placeholder="Enter postal code" />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
@@ -572,7 +626,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                                 <FormLabel>Academic Status</FormLabel>
                                 <Select 
                                   onValueChange={field.onChange} 
-                                  defaultValue={field.value || ''}
+                                  value={field.value || 'REGULAR'}
                                 >
                                   <FormControl>
                                     <SelectTrigger>
@@ -663,7 +717,7 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                                   <Input 
                                     type="date" 
                                     {...field} 
-                                    value={field.value ? new Date(field.value).toISOString().split('T')[0] : ''}
+                                    value={field.value || ''}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -678,9 +732,27 @@ export default function UserEditPage({ params }: UserEditPageProps) {
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Blood Group</FormLabel>
-                                <FormControl>
-                                  <Input {...field} value={field.value || ''} />
-                                </FormControl>
+                                <Select 
+                                  onValueChange={field.onChange} 
+                                  value={field.value || ''}
+                                >
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select blood group" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="">Select blood group</SelectItem>
+                                    <SelectItem value="A+">A+</SelectItem>
+                                    <SelectItem value="A-">A-</SelectItem>
+                                    <SelectItem value="B+">B+</SelectItem>
+                                    <SelectItem value="B-">B-</SelectItem>
+                                    <SelectItem value="AB+">AB+</SelectItem>
+                                    <SelectItem value="AB-">AB-</SelectItem>
+                                    <SelectItem value="O+">O+</SelectItem>
+                                    <SelectItem value="O-">O-</SelectItem>
+                                  </SelectContent>
+                                </Select>
                                 <FormMessage />
                               </FormItem>
                             )}

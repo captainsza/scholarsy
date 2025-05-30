@@ -39,7 +39,6 @@ export async function GET(
             state: true,
             country: true,
             pincode: true,
-            // Remove reference to sectionEnrollments
           }
         },
         faculty: {
@@ -48,8 +47,7 @@ export async function GET(
             department: true,
             subjects: {
               include: {
-                course: true, // Replace section with course
-                // Remove section reference
+                course: true,
               }
             }
           }
@@ -73,7 +71,24 @@ export async function GET(
     // Remove password from the response
     const { password, ...safeUser } = user;
     
-    return NextResponse.json({ user: safeUser });
+    // Restructure the data to match the form expectations
+    const structuredUser = {
+      ...safeUser,
+      profile: {
+        ...safeUser.profile,
+        // For students, merge address and personal fields from student record into profile
+        ...(safeUser.student && {
+          gender: safeUser.student.gender || '',
+          address: safeUser.student.address || '',
+          city: safeUser.student.city || '',
+          state: safeUser.student.state || '',
+          country: safeUser.student.country || 'India',
+          pincode: safeUser.student.pincode || '',
+        })
+      }
+    };
+    
+    return NextResponse.json({ user: structuredUser });
   } catch (error) {
     console.error("Failed to fetch user:", error);
     return NextResponse.json(
@@ -115,11 +130,11 @@ export async function PUT(
       );
     }
 
-    // Extract fields from profile and prepare updates
+    // Extract fields for profile and student/faculty updates
     const profileFields = ['firstName', 'lastName', 'phone', 'profileImage'];
-    const addressFields = ['address', 'city', 'state', 'country', 'pincode', 'gender'];
+    const addressAndPersonalFields = ['address', 'city', 'state', 'country', 'pincode', 'gender'];
     
-    // Create safe profile update with only valid fields
+    // Create safe profile update with only valid profile fields
     let profileUpdate: Record<string, any> = {};
     if (safeUpdates.profile) {
       profileFields.forEach(field => {
@@ -129,12 +144,13 @@ export async function PUT(
       });
     }
     
-    // Create student update with address fields and any existing student updates
+    // Create student/faculty updates
     let studentUpdate = { ...safeUpdates.student } || {};
+    let facultyUpdate = { ...safeUpdates.faculty } || {};
     
-    // Move address fields from profile to student if user is a student
+    // For students, move address and personal fields from profile to student
     if (existingUser.student && safeUpdates.profile) {
-      addressFields.forEach(field => {
+      addressAndPersonalFields.forEach(field => {
         if (field in safeUpdates.profile) {
           studentUpdate[field] = safeUpdates.profile[field];
         }
@@ -154,8 +170,8 @@ export async function PUT(
         student: existingUser.student && Object.keys(studentUpdate).length > 0 ? {
           update: studentUpdate
         } : undefined,
-        faculty: safeUpdates.faculty ? {
-          update: safeUpdates.faculty
+        faculty: existingUser.faculty && Object.keys(facultyUpdate).length > 0 ? {
+          update: facultyUpdate
         } : undefined
       },
       include: {
@@ -166,10 +182,26 @@ export async function PUT(
       }
     });
     
-    // Remove password from the response
+    // Remove password from the response and restructure like in GET
     const { password: _, ...safeUser } = updatedUser;
     
-    return NextResponse.json({ user: safeUser });
+    const structuredUser = {
+      ...safeUser,
+      profile: {
+        ...safeUser.profile,
+        // For students, merge address fields from student record into profile
+        ...(safeUser.student && {
+          gender: safeUser.student.gender || '',
+          address: safeUser.student.address || '',
+          city: safeUser.student.city || '',
+          state: safeUser.student.state || '',
+          country: safeUser.student.country || 'India',
+          pincode: safeUser.student.pincode || '',
+        })
+      }
+    };
+    
+    return NextResponse.json({ user: structuredUser });
   } catch (error) {
     console.error("Failed to update user:", error);
     return NextResponse.json(
