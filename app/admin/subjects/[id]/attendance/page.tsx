@@ -94,7 +94,7 @@ export default function SubjectAttendancePage() {
     const statusConfig = {
       present: { variant: "default" as const, className: "bg-green-100 text-green-800" },
       absent: { variant: "destructive" as const, className: "bg-red-100 text-red-800" },
-      late: { variant: "secondary" as const, className: "bg-yellow-100 text-yellow-800" },
+      late: { variant: "outline" as const, className: "bg-yellow-100 text-yellow-800" },
     };
     
     const config = statusConfig[status as keyof typeof statusConfig];
