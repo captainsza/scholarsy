@@ -154,18 +154,12 @@ export default function StudentList({ students, onView, onEdit, onDelete }: Stud
                           <span>Edit student</span>
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onView(`${student.id}/enrollment`)}>
+                        <DropdownMenuItem onClick={() => onView(`${student.id}/enroll`)}>
                           <UserPlus className="mr-2 h-4 w-4" />
                           <span>Manage enrollments</span>
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onView(`${student.id}/grades`)}>
-                          <GraduationCap className="mr-2 h-4 w-4" />
-                          <span>View grades</span>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onView(`${student.id}/attendance`)}>
-                          <Clock className="mr-2 h-4 w-4" />
-                          <span>View attendance</span>
-                        </DropdownMenuItem>
+
+                     
                         <DropdownMenuSeparator />
                         <DropdownMenuItem 
                           onClick={() => onDelete(student.id)}
