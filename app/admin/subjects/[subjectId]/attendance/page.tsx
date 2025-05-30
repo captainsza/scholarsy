@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/table";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import AdminLayout from "@/components/layouts/AdminLayout";
 
 interface AttendanceRecord {
   id: string;
@@ -140,152 +141,154 @@ export default function SubjectAttendancePage() {
   const stats = getAttendanceStats();
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Button variant="outline" size="sm" onClick={() => router.back()}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight">Attendance Overview</h1>
-            <p className="text-gray-500">
-              {subject?.name} ({subject?.code}) - {subject?.department}
-            </p>
+    <AdminLayout>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="outline" size="sm" onClick={() => router.back()}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back
+            </Button>
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight">Attendance Overview</h1>
+              <p className="text-gray-500">
+                {subject?.name} ({subject?.code}) - {subject?.department}
+              </p>
+            </div>
           </div>
+          <Button onClick={handleExportAttendance} variant="outline">
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
         </div>
-        <Button onClick={handleExportAttendance} variant="outline">
-          <Download className="h-4 w-4 mr-2" />
-          Export
-        </Button>
-      </div>
 
-      {/* Date Selector */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            Select Date
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <input
-            type="date"
-            value={selectedDate}
-            onChange={(e) => setSelectedDate(e.target.value)}
-            className="border border-gray-300 rounded-md px-3 py-2"
-          />
-        </CardContent>
-      </Card>
+        {/* Date Selector */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-5 w-5" />
+              Select Date
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <input
+              type="date"
+              value={selectedDate}
+              onChange={(e) => setSelectedDate(e.target.value)}
+              className="border border-gray-300 rounded-md px-3 py-2"
+            />
+          </CardContent>
+        </Card>
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <Users className="h-8 w-8 text-blue-600" />
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Total Students</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <Users className="h-8 w-8 text-blue-600" />
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Total Students</p>
+                  <p className="text-2xl font-bold">{stats.total}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-green-600 rounded-full"></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center">
+                  <div className="h-4 w-4 bg-green-600 rounded-full"></div>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Present</p>
+                  <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Present</p>
-                <p className="text-2xl font-bold text-green-600">{stats.present}</p>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
+                  <div className="h-4 w-4 bg-red-600 rounded-full"></div>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Absent</p>
+                  <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 bg-red-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-red-600 rounded-full"></div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
+                  <div className="h-4 w-4 bg-yellow-600 rounded-full"></div>
+                </div>
+                <div className="ml-4">
+                  <p className="text-sm font-medium text-gray-600">Late</p>
+                  <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
+                </div>
               </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Absent</p>
-                <p className="text-2xl font-bold text-red-600">{stats.absent}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-6">
-            <div className="flex items-center">
-              <div className="h-8 w-8 bg-yellow-100 rounded-full flex items-center justify-center">
-                <div className="h-4 w-4 bg-yellow-600 rounded-full"></div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-gray-600">Late</p>
-                <p className="text-2xl font-bold text-yellow-600">{stats.late}</p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Attendance Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Attendance Records - {selectedDate}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Time</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {attendanceRecords.length === 0 ? (
+        {/* Attendance Table */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Attendance Records - {selectedDate}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={3} className="h-24 text-center">
-                      No attendance records found for this date.
-                    </TableCell>
+                    <TableHead>Student</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Time</TableHead>
                   </TableRow>
-                ) : (
-                  attendanceRecords.map((record) => (
-                    <TableRow key={record.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="h-8 w-8">
-                            <AvatarImage src={record.student.user.profile?.profileImage} />
-                            <AvatarFallback className="bg-cyan-100 text-cyan-600">
-                              {record.student.user.profile?.firstName?.[0]}
-                              {record.student.user.profile?.lastName?.[0]}
-                            </AvatarFallback>
-                          </Avatar>
-                          <span>
-                            {record.student.user.profile?.firstName} {record.student.user.profile?.lastName}
-                          </span>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {getStatusBadge(record.status)}
-                      </TableCell>
-                      <TableCell>
-                        {new Date(record.date).toLocaleTimeString()}
+                </TableHeader>
+                <TableBody>
+                  {attendanceRecords.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={3} className="h-24 text-center">
+                        No attendance records found for this date.
                       </TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+                  ) : (
+                    attendanceRecords.map((record) => (
+                      <TableRow key={record.id}>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-3">
+                            <Avatar className="h-8 w-8">
+                              <AvatarImage src={record.student.user.profile?.profileImage} />
+                              <AvatarFallback className="bg-cyan-100 text-cyan-600">
+                                {record.student.user.profile?.firstName?.[0]}
+                                {record.student.user.profile?.lastName?.[0]}
+                              </AvatarFallback>
+                            </Avatar>
+                            <span>
+                              {record.student.user.profile?.firstName} {record.student.user.profile?.lastName}
+                            </span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {getStatusBadge(record.status)}
+                        </TableCell>
+                        <TableCell>
+                          {new Date(record.date).toLocaleTimeString()}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </AdminLayout>
   );
 }
